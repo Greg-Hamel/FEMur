@@ -4,16 +4,16 @@ except ImportError:
     from distutils.core import setup
 
 config = {
-    'Description': 'My Project',
-    'author': 'Gregory Hamel',
-    'url': 'URL to get it at.',
-    'download_url': 'Where to download it.',
+    'Description': 'A simple Finite Element Modelling (FEM) library',
+    'author': 'Greg Hamel (MrJarv1s)',
+    'url': 'https://github.com/MrJarv1s/FEMur',
+    'download_url': 'https://github.com/MrJarv1s/FEMur',
     'author_email': 'hamegreg@gmail.com',
     'version': '0.1',
     'install_requires': ['nose'],
-    'packages': ['NAME'],
+    'packages': ['FEMur'],
     'scripts': [],
-    'name': 'projectname',
+    'name': 'FEMur',
 }
 
 setup(**config)
