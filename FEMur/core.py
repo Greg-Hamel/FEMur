@@ -282,12 +282,13 @@ class Element1D(Element):
 
     def validate_N(self):
 
-        validation_matrix = zeros((self.nnodes, self.nnodes))
+        validation_matrix = np.zeros((self.nnodes, self.nnodes))
+
         for i in range(self.nnodes):
             for j in range(self.nnodes):
-                validation_matrix[i, j] = self.N[i].subs(x, nodes[j])
+                validation_matrix[i, j] = self.N[i].subs(x, self.nodes[j].x)
 
-        if validation_matrix[i, j] == np.identity(self.nnodes):
+        if validation_matrix.all() == np.identity(self.nnodes).all():
             return True
         else:
             return False

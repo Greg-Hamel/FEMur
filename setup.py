@@ -14,7 +14,7 @@ config = {
     'packages': ['FEMur'],
     'scripts': [],
     'name': 'FEMur',
-    'classifiers' = [
+    'classifiers': [
         "Development Status :: 2 - Pre-Alpha",
         "Environment :: Console",
         "License :: OSI Approved :: MIT License",
