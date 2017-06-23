@@ -192,107 +192,6 @@ class Element1D(Element):
         print('K =', self.k)
         print('h =', self.h, '\n')
 
-    # Polynomial approximation
-
-    def get_p(self):
-        # Gets the P matrix
-        p = [None] * self.nnodes  # create empty list of nnodes size
-
-        for i in range(self.nnodes):
-            if i == 0:
-                p[i] = 1
-            else:
-                p[i] = x ** i
-
-        p = np.array(p)
-        self.p = p[0:self.nnodes]
-
-    def get_Me(self):
-        # Gets the M_e Matrix
-        Me = np.zeros((self.nnodes, self.nnodes))
-        expr = x
-        for i in range(self.nnodes):
-            for j in range(self.nnodes):
-                Me[i, j] = int(self.nodes[i].x ** j)
-
-        self.Me = Me
-
-    def get_inv_Me(self):
-        self.get_Me()
-        self.inv_Me = np.linalg.inv(self.Me)
-        tol = 1e-15
-        self.inv_Me.real[np.abs(self.inv_Me.real) < tol] = 0.0
-
-    def get_N(self):
-        # Get the shape functions for the element
-        self.get_p()
-        self.get_inv_Me()
-
-        self.N = np.dot(self.p, self.inv_Me)
-
-    def get_N_prime(self):
-        if self.N is None:
-            self.get_N()
-        N_prime = [None] * self.nnodes
-        for i in range(self.nnodes):
-            N_prime[i] = sy.diff(self.N[i], x)
-
-        self.N_prime = N_prime
-
-    def set_conditions(self, conditions):
-        if len(conditions) == self.nnodes:
-            self.conditions = np.array(conditions)
-        else:
-            raise ValueError(
-                'Given conditions do not match the number of nodes'
-                )
-
-    def get_function(self):
-        if self.conditions is None:
-            raise ValueError(
-                'No conditions were given, please provide conditions using'
-                'provide_conditions().'
-                )
-        else:
-            function = np.dot(self.N, self.conditions)
-            function2 = function
-            for i in sy.preorder_traversal(function):
-                if isinstance(i, sy.Float) and abs(i) < 1e-15:
-                    function2 = function2.subs(i, round(i, 1))
-
-            self.function = function2
-
-    def get_function_prime(self):
-        if self.conditions is None:
-            raise ValueError(
-                'No conditions were given, please provide conditions using'
-                'provide_conditions().'
-                )
-        else:
-            function_prime = np.dot(self.N_prime, self.conditions)
-            function2 = function_prime
-            for i in sy.preorder_traversal(function_prime):
-                if isinstance(i, sy.Float) and i < 1e-15:
-                    function2 = function2.subs(i, round(i, 1))
-
-            self.function_prime = function2
-
-    def get_approximation(self, coordinate, round_to=4):
-        return round(self.function.subs(x, coordinate), round_to)
-
-    def validate_N(self):
-
-        validation_matrix = np.zeros((self.nnodes, self.nnodes))
-
-        for i in range(self.nnodes):
-            for j in range(self.nnodes):
-                validation_matrix[i, j] = self.N[i].subs(x, self.nodes[j].x)
-
-        if validation_matrix.all() == np.identity(self.nnodes).all():
-            return True
-        else:
-            return False
-
     def getIndex(self):
         # Gets the index for the particular element in the global matrix.
         index = np.zeros(self.nnodes * self.ndof)
@@ -480,7 +379,9 @@ class Mesh1D(Mesh):
                           + self.num_elements * (self.nodes_elements - 2)
         )
         self.L_element = self.length / self.num_elements
-        self.inside_node_distance = self.L_element / self.nodes_elements
+        print('L_element:', self.L_element)
+        self.inside_node_distance = self.L_element / (self.nodes_elements - 1)
+        print('inside_node_distance:', self.inside_node_distance)
 
         self.meshing = None
 
@@ -510,7 +411,7 @@ class Mesh1D(Mesh):
 
         for i in range(self.num_nodes):          # Nodes Creation
             nodes[str(i)] = (
-                Node1D(self.inside_node_distance * i, i)
+                Node1D((self.inside_node_distance * i) + self.start, i)
                 )
 
         for i in range(self.num_elements):  # Elements Creation
@@ -541,6 +442,127 @@ class Mesh3D(Mesh):
     '3 Dimensional Mesh.'
     def __init__(self):
         pass
+
+
+class ElementSolver(object):
+    'Common class for all element-based solvers'
+    def __init__(self):
+        pass
+
+class ElementSolver1D(ElementSolver):
+    '1 Dimensional Element-based Solver.'
+    def __init__(self, mesh):
+        self.mesh = mesh
+
+        self.nnodes = len(self.mesh.nodes)
+        self.nodes = self.mesh.nodes        # Dictionary of nodes
+        print(self.nodes['0'].x)
+        print(self.nodes['1'].x)
+        print(self.nodes['2'].x)
+        print(self.nodes['3'].x)
+        print(self.nodes['4'].x)
+
+    def get_p(self):
+        # Gets the P matrix
+        p = [None] * self.nnodes  # create empty list of nnodes size
+
+        for i in range(self.nnodes):
+            if i == 0:
+                p[i] = 1
+            else:
+                p[i] = x ** i
+
+        p = np.array(p)
+        self.p = p[0:self.nnodes]
+
+    def get_Me(self):
+        # Gets the M_e Matrix
+        Me = np.zeros((self.nnodes, self.nnodes))
+        expr = x
+        for i in range(self.nnodes):
+            for j in range(self.nnodes):
+                Me[i, j] = int(self.nodes[str(i)].x ** j)
+
+        self.Me = Me
+        print(self.Me)
+
+    def get_inv_Me(self):
+        self.get_Me()
+        self.inv_Me = np.linalg.inv(self.Me)
+        tol = 1e-15
+        self.inv_Me.real[np.abs(self.inv_Me.real) < tol] = 0.0
+
+    def get_N(self):
+        # Get the shape functions for the element
+        self.get_p()
+        self.get_inv_Me()
+
+        self.N = np.dot(self.p, self.inv_Me)
+
+    def get_N_prime(self):
+        if self.N is None:
+            self.get_N()
+        N_prime = [None] * self.nnodes
+        for i in range(self.nnodes):
+            N_prime[i] = sy.diff(self.N[i], x)
+
+        self.N_prime = N_prime
+
+    def set_conditions(self, conditions):
+        if len(conditions) == self.nnodes:
+            self.conditions = np.array(conditions)
+        else:
+            raise ValueError(
+                'Given conditions do not match the number of nodes'
+                )
+
+    def get_function(self):
+        if self.conditions is None:
+            raise ValueError(
+                'No conditions were given, please provide conditions using'
+                'provide_conditions().'
+                )
+        else:
+            function = np.dot(self.N, self.conditions)
+            function2 = function
+            for i in sy.preorder_traversal(function):
+                if isinstance(i, sy.Float) and abs(i) < 1e-15:
+                    function2 = function2.subs(i, round(i, 1))
+
+            self.function = function2
+
+    def get_function_prime(self):
+        if self.conditions is None:
+            raise ValueError(
+                'No conditions were given, please provide conditions using'
+                'provide_conditions().'
+                )
+        else:
+            function_prime = np.dot(self.N_prime, self.conditions)
+            function2 = function_prime
+            for i in sy.preorder_traversal(function_prime):
+                if isinstance(i, sy.Float) and i < 1e-15:
+                    function2 = function2.subs(i, round(i, 1))
+
+            self.function_prime = function2
+
+    def get_approximation(self, coordinate, round_to=4):
+        return round(self.function.subs(x, coordinate), round_to)
+
+    def validate_N(self):
+
+        validation_matrix = np.zeros((self.nnodes, self.nnodes))
+
+        for i in range(self.nnodes):
+            for j in range(self.nnodes):
+                validation_matrix[i, j] = self.N[i].subs(
+                    x, self.nodes[str(j)].x
+                    )
+
+        if validation_matrix.all() == np.identity(self.nnodes).all():
+            return True
+        else:
+            return False
 
 
 # ASSEMBLER
