@@ -280,6 +280,18 @@ class Element1D(Element):
     def get_approximation(self, coordinate, round_to=4):
         return round(self.function.subs(x, coordinate), round_to)
 
+    def validate_N(self):
+
+        validation_matrix = zeros((self.nnodes, self.nnodes))
+        for i in range(self.nnodes):
+            for j in range(self.nnodes):
+                validation_matrix[i, j] = self.N[i].subs(x, nodes[j])
+
+        if validation_matrix[i, j] == np.identity(self.nnodes):
+            return True
+        else:
+            return False
+
     def getIndex(self):
         # Gets the index for the particular element in the global matrix.
         index = np.zeros(self.nnodes * self.ndof)
