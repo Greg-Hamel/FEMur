@@ -1,6 +1,6 @@
 # FEMur
 
-A simple Finite Element Modeling (FEM) library. It was originally developed for a Master's level course, but it's development is being expanded to become a more well-rounded library which could be use to solve real-world problems.
+A simple Finite Element Modeling (FEM) library. It was originally developed for a Master's level course, but its development is being expanded to become a more well-rounded library which could be use to solve real-world problems.
 
 # Goals
 
