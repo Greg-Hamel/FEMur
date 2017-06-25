@@ -379,9 +379,7 @@ class Mesh1D(Mesh):
                           + self.num_elements * (self.nodes_elements - 2)
         )
         self.L_element = self.length / self.num_elements
-        print('L_element:', self.L_element)
         self.inside_node_distance = self.L_element / (self.nodes_elements - 1)
-        print('inside_node_distance:', self.inside_node_distance)
 
         self.meshing = None
 
@@ -449,6 +447,7 @@ class ElementSolver(object):
     def __init__(self):
         pass
 
+
 class ElementSolver1D(ElementSolver):
     '1 Dimensional Element-based Solver.'
     def __init__(self, mesh):
@@ -456,11 +455,6 @@ class ElementSolver1D(ElementSolver):
 
         self.nnodes = len(self.mesh.nodes)
         self.nodes = self.mesh.nodes        # Dictionary of nodes
-        print(self.nodes['0'].x)
-        print(self.nodes['1'].x)
-        print(self.nodes['2'].x)
-        print(self.nodes['3'].x)
-        print(self.nodes['4'].x)
 
     def get_p(self):
         # Gets the P matrix
@@ -484,7 +478,6 @@ class ElementSolver1D(ElementSolver):
                 Me[i, j] = int(self.nodes[str(i)].x ** j)
 
         self.Me = Me
-        print(self.Me)
 
     def get_inv_Me(self):
         self.get_Me()

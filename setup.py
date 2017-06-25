@@ -10,7 +10,7 @@ config = {
     'download_url': 'https://github.com/MrJarv1s/FEMur',
     'author_email': 'hamegreg@gmail.com',
     'version': '0.1',
-    'install_requires': ['nose'],
+    'install_requires': ['nose', 'numpy', 'scipy', 'sympy'],
     'packages': ['FEMur'],
     'scripts': [],
     'name': 'FEMur',
