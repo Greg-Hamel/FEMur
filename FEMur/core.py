@@ -56,13 +56,15 @@ class Node1D(Node):
         Node1D.total_nodes += 1
 
     def __sub__(self, other):
+        # Substracts a Node 'x' value from another Node 'x' value
         return Node1D(self.x - other.x, self.dof, self.index)
 
     def __add__(self, other):
+        # Add a Node 'x' value with another Node 'x' value
         return Node1D(self.x + other.x, self.dof, self.index)
 
     def nodeDistance(self, other):
-        # Return the distance between two nodes.
+        # Return the distance between two 1D nodes.
         return (self.x - other.x)
 
     def showSelf(self):
@@ -85,13 +87,17 @@ class Node2D(Node):
         Node2D.total_nodes += 1
 
     def __sub__(self, other):
+        # Substracts a Node 'x' and 'y' values from another Node 'x' and 'y'
+        # values
         return Node2D(self.x - other.x, self.y - other.y, self.dof, self.index)
 
     def __add__(self, other):
+        # Add a Node 'x' and 'y' values with another Node 'x' and 'y'
+        # values
         return Node2D(self.x + other.x, self.y + other.y, self.dof, self.index)
 
     def nodeDistance(self, other):
-        # Return the distance between two nodes.
+        # Return the distance between two 2D nodes.
         return (((self.x - other.x) ** 2) + ((self.y - other.y) ** 2)) ** 0.5
 
     def showSelf(self):
@@ -115,15 +121,19 @@ class Node3D(Node):
         Node3D.total_nodes += 1
 
     def __sub__(self, other):
+        # Substracts a Node 'x', 'y' and 'z' values from another Node 'x', 'y'
+        # and 'z' values
         return Node(self.x - other.x, self.y - other.y, self.z - other.z,
                     self.dof, self.index)
 
     def __add__(self, other):
+        # Add a Node 'x', 'y' and 'z' values with another Node 'x', 'y' and 'z'
+        # values
         return Node(self.x + other.x, self.y + other.y, self.z + other.z,
                     self.dof, self.index)
 
     def nodeDistance(self, other):
-        # Return the distance between two nodes.
+        # Return the distance between two 3D nodes.
         return (((self.x - other.x) ** 2) + ((self.y - other.y) ** 2)
                 + ((self.z - other.z) ** 2)) ** 0.5
 
@@ -163,6 +173,7 @@ class Element1D(Element):
 
         self.Ne = None
         self.Be = None
+        self.trial = None
 
         self.number = Element1D.total_elements
         Element1D.total_elements += 1       # Counter for number of elements.
@@ -305,10 +316,12 @@ class Element1D(Element):
             self.trial_prime = trial2
 
     def get_approximation(self, coordinate, round_to=4):
+        # get the FE approximation between two nodes
         return round(self.trial.subs(x, coordinate), round_to)
 
-    def validate_N(self):
-
+    def validate_Ne(self):
+        # Validate the N_e matrix by providing nodes 'x' values. In order for
+        # this to be validated as "Good", it has to return the identity matrix.
         validation_matrix = np.zeros((self.nnodes, self.nnodes))
 
         for i in range(self.nnodes):
@@ -425,6 +438,7 @@ class Triangular(Element2D):
 
 
 class T6(Triangular):
+    "Class representing the T6 shape."
     eta = sy.symbols('eta')
     ksi = sy.symbols('ksi')
 
@@ -461,9 +475,10 @@ class Mesh1D(Mesh):
 
         self.length = self.end - self.start      # Length of the domain
         self.num_nodes = (
-                          self.num_elements + 1
+                          self.num_elements
+                          + 1
                           + self.num_elements * (self.nodes_elements - 2)
-        )
+                          )
         self.L_element = self.length / self.num_elements
         self.inside_node_distance = self.L_element / (self.nodes_elements - 1)
 
@@ -472,6 +487,7 @@ class Mesh1D(Mesh):
         self.N = None
 
     def __str__(self):
+        # Prints the element-node interaction.
         if self.meshing is None:
             Err = 'Error, the one-dimension mesh has not been generated yet. '\
                   'Please use Mesh1D.mesh() to generate your mesh based on '\
@@ -491,7 +507,8 @@ class Mesh1D(Mesh):
 
             return str_output
 
-    def mesh_poly(self):
+    def mesh(self):
+        # Create a mesh for linear models
         nodes = {}
         elements = {}
 
@@ -546,7 +563,7 @@ class Mesh1D(Mesh):
             print(f"Calculating Element({key})'s shape functions")
             self.elements[i].get_Ne()
 
-            validation = self.elements[i].validate_N()
+            validation = self.elements[i].validate_Ne()
             print(f'Validation of shape function is: {validation}')
 
             print(f"Calculating Element({key})'s shape functions derivatives")
@@ -559,11 +576,25 @@ class Mesh1D(Mesh):
             self.elements[i].get_trial()
             print(self.elements[i].trial)
 
-    def show_elements_trial(self):
+    def print_elements_trial(self):
+        # Shows each element's trial function
         for i in self.elements.keys():
+            if self.elements[i].trial is None:
+                self.elements[i].get_trial()
+
             key = int(i)
             print(f'Element({key}) has a trial function of: '
                   f'{self.elements[i].trial}')
+
+    def print_elements_Ne(self):
+        # Shows each element's trial function
+        for i in self.elements.keys():
+            if self.elements[i].Ne is None:
+                self.elements[i].get_Ne()
+
+            key = int(i)
+            print(f'Element({key}) has a trial function of: '
+                  f'{self.elements[i].Ne}')
 
     def get_N(self):
         # Get the global shape function matrix (N)
@@ -582,6 +613,8 @@ class Mesh1D(Mesh):
         self.N = N
 
     def get_trial(self):
+        # Get the global trial function
+        # Warning: this does not seem to work properly.
         if self.N is None:
             self.get_N()
 
