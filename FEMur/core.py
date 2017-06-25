@@ -40,7 +40,7 @@ class Node(object):
         # information from the child functions and returns the total of all
         # nodes.
         if Node.total_nodes == 1:
-            print('There is', Node.total_nodes, 'node.\n')
+            ('There is', Node.total_nodes, 'node.\n')
         elif Node.total_nodes > 1:
             print('There are', Node.total_nodes, 'nodes.\n')
         else:
@@ -156,10 +156,15 @@ class Element1D(Element):
     def __init__(self, node_table, number_gauss_point=None):
         self.ngp = number_gauss_point       # Gauss Points to be evaluated.
 
-        self.nodes = node_table             # Table with nodes
-        self.nnodes = len(node_table)       # Linear elements = 2 nodes
-        self.ndof = (self.nodes[0]).dof     # ndof-D analysis
-        self.L_e = self.nodes[-1].nodeDistance(self.nodes[0])
+        self.node_table = node_table        # Table with nodes
+        self.L_e = self.node_table[-1].nodeDistance(self.node_table[0])
+        self.nodes = {}                     # Dictionary with nodes
+
+        for i in range(len(node_table)):
+            self.nodes[str(i)] = node_table[i]
+
+        self.nnodes = len(self.nodes)       # Linear elements = 2 nodes
+        self.ndof = (self.nodes[str(0)]).dof     # ndof-D analysis
 
         self.N = None
 
@@ -170,9 +175,11 @@ class Element1D(Element):
         nodes_str = f''
         for i in range(self.nnodes):
             if nodes_str == '':
-                nodes_str = f'{self.nodes[i].number}'
+                key = str(i)
+                nodes_str = f'{self.nodes[key].number}'
             else:
-                nodes_str = nodes_str + f', {self.nodes[i].number}'
+                key = str(i)
+                nodes_str = nodes_str + f', {self.nodes[key].number}'
         output_str = f'Element({self.number}) composed of Nodes({nodes_str})'
         return output_str
 
@@ -185,24 +192,19 @@ class Element1D(Element):
         else:
             print('There are no elements.\n')
 
-    def showSelf(self):
-        # Print-out of all relevent information about the element.
-        print(f'''Element "{self.number}" is linked to the following
-        nodes:\n\t({self.nodes[0].number}, {self.nodes[1].number})''')
-        print('K =', self.k)
-        print('h =', self.h, '\n')
-
     def getIndex(self):
         # Gets the index for the particular element in the global matrix.
         index = np.zeros(self.nnodes * self.ndof)
         for i in range(self.nnodes):
             for n in range(self.ndof):
-                index[i] = self.nodes[i].index + n
+                index[i] = self.nodes[str(i)].index + n
 
         return index
 
     def jacobien(self):
-        return np.array([0.5 * self.nodes[0].nodeDistance(self.nodes[1])])
+        return np.array([0.5 * self.nodes[str(0)].nodeDistance(
+                         self.nodes[str(1)]
+                         )])
 
     def detJacobien(self, jacobien):
         return np.linalg.det(jacobien)
@@ -450,11 +452,11 @@ class ElementSolver(object):
 
 class ElementSolver1D(ElementSolver):
     '1 Dimensional Element-based Solver.'
-    def __init__(self, mesh):
-        self.mesh = mesh
+    def __init__(self, element):
+        self.element = element
 
-        self.nnodes = len(self.mesh.nodes)
-        self.nodes = self.mesh.nodes        # Dictionary of nodes
+        self.nnodes = len(self.element.nodes)  # Number of nodes of the element
+        self.nodes = self.element.nodes        # Dictionary of nodes
 
     def get_p(self):
         # Gets the P matrix
@@ -584,27 +586,35 @@ class Assembler3D(Assembler):
         pass
 
 
-# SOLVER
+# GlobalSolver
 
-class Solver(object):
-    'Common class for all Solver of the Finite Element Method.'
+class GlobalSolver(object):
+    'Common class for all GlobalSolver of the Finite Element Method.'
+    def __init__(self, mesh):
+        self.mesh = mesh
+
+        self.nnodes = len(self.mesh.nodes)  # Number of nodes of the element
+        self.nodes = self.mesh.nodes        # Dictionary of nodes
+        self.elements = self.mesh.elements  # Dictionary of elements
+
+    def solve_elements(self):
+        for i in range(len(self.elements)):
+            self.elements[str(i)]
+
+
+class GlobalSolver1D(GlobalSolver):
+    '1 Dimensional GlobalSolver.'
     def __init__(self):
         pass
 
 
-class Solver1D(Solver):
-    '1 Dimensional Solver.'
+class GlobalSolver2D(GlobalSolver):
+    '2 Dimensional GlobalSolver.'
     def __init__(self):
         pass
 
 
-class Solver2D(Solver):
-    '2 Dimensional Solver.'
-    def __init__(self):
-        pass
-
-
-class Solver3D(Solver):
-    '3 Dimensional Solver.'
+class GlobalSolver3D(GlobalSolver):
+    '3 Dimensional GlobalSolver.'
     def __init__(self):
         pass
