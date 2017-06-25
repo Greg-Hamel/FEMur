@@ -508,10 +508,20 @@ class Mesh1D(Mesh):
     def solve_elements(self):
         self.divide_conditions()
         for i in self.elements.keys():
+            key = int(i)
+            print(f"Calculating Element({key})'s shape functions")
             self.elements[i].get_N()
+
+            validation = self.elements[i].validate_N()
+            print(f'Validation of shape function is: {validation}')
+
+            print(f"Calculating Element({key})'s shape functions derivatives")
             self.elements[i].get_N_prime()
 
+            print(f"Injecting Conditions to Element({key})'s Shape Functions")
             self.elements[i].set_conditions(self.conditions_of_elements[i])
+
+            print(f"Calculating Element({key})'s functions")
             self.elements[i].get_function()
 
     def show_elements_functions(self):
