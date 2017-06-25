@@ -13,9 +13,6 @@ easy-to-use solver for FEM problems that is accessible for most people.
 This is in no-way a complete project as of yet. There is a lot more to come.
 """
 
-__version__ = '0.1'
-__author__ = 'Gregory Hamel'
-
 import numpy as np
 from scipy import pi
 from scipy.special.orthogonal import p_roots
@@ -35,9 +32,9 @@ class Node(object):
 
     def displayTotal():
         # Displays the total number of nodes.
-        # This function should be transfered (in its current state to the
-        # child classes) and be replaced by a function that gets the
-        # information from the child functions and returns the total of all
+        # This method should be transfered (in its current state to the
+        # child classes) and be replaced by a method that gets the
+        # information from the child methods and returns the total of all
         # nodes.
         if Node.total_nodes == 1:
             ('There is', Node.total_nodes, 'node.\n')
@@ -138,8 +135,6 @@ class Node3D(Node):
 
 
 # ELEMENT
-
-
 class Element(object):
     'Common class for all elements of the Finite Element Method.'
     total_elements = 0
@@ -166,12 +161,14 @@ class Element1D(Element):
         self.nnodes = len(self.nodes)       # Linear elements = 2 nodes
         self.ndof = (self.nodes[str(0)]).dof     # ndof-D analysis
 
-        self.N = None
+        self.Ne = None
+        self.Be = None
 
         self.number = Element1D.total_elements
         Element1D.total_elements += 1       # Counter for number of elements.
 
     def __str__(self):
+        # Define the print function for Element1D
         nodes_str = f''
         for i in range(self.nnodes):
             if nodes_str == '':
@@ -217,75 +214,98 @@ class Element1D(Element):
     def get_Me(self):
         # Gets the M_e Matrix
         Me = np.zeros((self.nnodes, self.nnodes))
-        expr = x
         for i in range(self.nnodes):
             for j in range(self.nnodes):
-                Me[i, j] = int(self.nodes[str(i)].x ** j)
+                Me[i, j] = self.nodes[str(i)].x ** j
 
         self.Me = Me
 
     def get_inv_Me(self):
+        # Get the inverse of the M_e Matrix
         self.get_Me()
         self.inv_Me = np.linalg.inv(self.Me)
         tol = 1e-15
         self.inv_Me.real[np.abs(self.inv_Me.real) < tol] = 0.0
 
-    def get_N(self):
-        # Get the shape functions for the element
+    def get_Ne(self):
+        # Get the shape functions for the element.
         self.get_p()
         self.get_inv_Me()
 
-        self.N = np.dot(self.p, self.inv_Me)
+        self.Ne = np.dot(self.p, self.inv_Me)
 
-    def get_N_prime(self):
-        if self.N is None:
-            self.get_N()
+    def get_Be(self):
+        # Get the Shape function derivatives for the element.
+        if self.Ne is None:
+            self.get_Ne()
+
         N_prime = [None] * self.nnodes
         for i in range(self.nnodes):
-            N_prime[i] = sy.diff(self.N[i], x)
+            N_prime[i] = sy.diff(self.Ne[i], x)
 
-        self.N_prime = N_prime
+        self.Be = N_prime
+
+    def get_we(self, weight):
+        # Get the we matrix based on the weight matrix provided
+        if self.Ne is None:
+            self.get_Ne()
+
+        we = np.dot(self.Ne, weight)
+
+        self.we = we
+
+    def get_we_prime(self, weight):
+        # Get the we_prime matrix based on the weight matrix provided
+        if self.Be is None:
+            self.get_Be()
+
+        we_prime = np.dot(self.Be, weight)
+
+        self.we_prime = we_prime
 
     def set_conditions(self, conditions):
+        # Provide the elements conditions (d_e).
         if len(conditions) == self.nnodes:
-            self.conditions = np.array(conditions)
+            self.de = np.array(conditions)
         else:
             raise ValueError(
                 'Given conditions do not match the number of nodes'
                 )
 
-    def get_function(self):
-        if self.conditions is None:
+    def get_trial(self):
+        # Get the trial function
+        if self.de is None:
             raise ValueError(
                 'No conditions were given, please provide conditions using'
                 'provide_conditions().'
                 )
         else:
-            function = np.dot(self.N, self.conditions)
-            function2 = function
-            for i in sy.preorder_traversal(function):
+            trial = np.dot(self.Ne, self.de)
+            trial2 = trial
+            for i in sy.preorder_traversal(trial):
                 if isinstance(i, sy.Float) and abs(i) < 1e-15:
-                    function2 = function2.subs(i, round(i, 1))
+                    trial2 = trial2.subs(i, round(i, 1))
 
-            self.function = function2
+            self.trial = trial2
 
-    def get_function_prime(self):
-        if self.conditions is None:
+    def get_trial_prime(self):
+        # Get the trial function derivative
+        if self.de is None:
             raise ValueError(
                 'No conditions were given, please provide conditions using'
                 'provide_conditions().'
                 )
         else:
-            function_prime = np.dot(self.N_prime, self.conditions)
-            function2 = function_prime
-            for i in sy.preorder_traversal(function_prime):
+            trial_prime = np.dot(self.Be, self.de)
+            trial2 = trial_prime
+            for i in sy.preorder_traversal(trial_prime):
                 if isinstance(i, sy.Float) and i < 1e-15:
-                    function2 = function2.subs(i, round(i, 1))
+                    trial2 = trial2.subs(i, round(i, 1))
 
-            self.function_prime = function2
+            self.trial_prime = trial2
 
     def get_approximation(self, coordinate, round_to=4):
-        return round(self.function.subs(x, coordinate), round_to)
+        return round(self.trial.subs(x, coordinate), round_to)
 
     def validate_N(self):
 
@@ -293,7 +313,7 @@ class Element1D(Element):
 
         for i in range(self.nnodes):
             for j in range(self.nnodes):
-                validation_matrix[i, j] = self.N[i].subs(
+                validation_matrix[i, j] = self.Ne[i].subs(
                     x, self.nodes[str(j)].x
                     )
 
@@ -437,7 +457,7 @@ class Mesh1D(Mesh):
         self.end = domain[1]  # Last 'x' of the domain
         self.num_elements = Number_of_elements  # Number of elements
         self.nodes_elements = Nodes_per_element  # Number of nodes per element
-        self.conditions = conditions  # Conditions at the nodes (d^e)
+        self.d = np.array(conditions)  # Conditions at the nodes (d vector)
 
         self.length = self.end - self.start      # Length of the domain
         self.num_nodes = (
@@ -448,6 +468,8 @@ class Mesh1D(Mesh):
         self.inside_node_distance = self.L_element / (self.nodes_elements - 1)
 
         self.meshing = None
+        self.Le_container = None
+        self.N = None
 
     def __str__(self):
         if self.meshing is None:
@@ -495,40 +517,90 @@ class Mesh1D(Mesh):
         self.meshing = [nodes, elements]
         return nodes, elements
 
-    def divide_conditions(self):
-        conditions_of_elements = {}  # Conditions for each elements
-        for i in range(self.num_elements):
-            element_conditions = []
+    def get_Le_container(self):
+        # Get the dictionary which contains all L^e matrices
+        Le = {}
+        for i in self.elements.keys():
+            Le[i] = np.zeros((self.nodes_elements, self.num_nodes))
             for j in range(self.nodes_elements):
-                element_conditions.append(self.conditions[(i * j) + j])
-            conditions_of_elements[str(i)] = element_conditions
+                Le[i][j, int(i) + j] = 1
 
-        self.conditions_of_elements = conditions_of_elements
+        self.Le_container = Le
+
+    def get_de_container(self):
+        # Get the dictionary which contains all d^e matrices
+        de = {}
+        if self.Le_container is None:
+            self.get_Le_container()
+
+        for i in self.elements.keys():
+            de[i] = np.dot(self.Le_container[i], self.d)
+
+        self.de = de
 
     def solve_elements(self):
-        self.divide_conditions()
+        # Solve all current elements (shape functions, approximation, etc)
+        self.get_de_container()
         for i in self.elements.keys():
             key = int(i)
             print(f"Calculating Element({key})'s shape functions")
-            self.elements[i].get_N()
+            self.elements[i].get_Ne()
 
             validation = self.elements[i].validate_N()
             print(f'Validation of shape function is: {validation}')
 
             print(f"Calculating Element({key})'s shape functions derivatives")
-            self.elements[i].get_N_prime()
+            self.elements[i].get_Be()
 
             print(f"Injecting Conditions to Element({key})'s Shape Functions")
-            self.elements[i].set_conditions(self.conditions_of_elements[i])
+            self.elements[i].set_conditions(self.de[i])
 
-            print(f"Calculating Element({key})'s functions")
-            self.elements[i].get_function()
+            print(f"Calculating Element({key})'s trial functions\n")
+            self.elements[i].get_trial()
+            print(self.elements[i].trial)
 
-    def show_elements_functions(self):
+    def show_elements_trial(self):
         for i in self.elements.keys():
             key = int(i)
-            print(f'Element({key}) has a function of: '
-                  f'{self.elements[i].function}')
+            print(f'Element({key}) has a trial function of: '
+                  f'{self.elements[i].trial}')
+
+    def get_N(self):
+        # Get the global shape function matrix (N)
+        N = [0] * self.num_nodes
+
+        if self.Le_container is None:
+            self.get_Le_container()
+
+        self.solve_elements()
+        print("Calculating Global Shape functions")
+        for i in range(self.num_nodes):
+            for j in self.elements.keys():
+                N[i] = N[i] + np.dot(self.elements[j].Ne,
+                                     self.Le_container[j])[i]
+
+        self.N = N
+
+    def get_trial(self):
+        if self.N is None:
+            self.get_N()
+
+        omega = np.dot(self.N, self.d)
+
+        self.omega = omega
+
+    def get_global_weights(self):
+        # Get the global weight function (omega)
+        omega = np.zeros(self.num_elements)
+
+        if self.Le_container is None:
+            get_Le_container()
+
+        for i in self.elements.keys():
+            omega[int(i)] = np.dot(self.elements[i].Be,
+                                   self.Le_container[i])
+
+        self.omega = np.dot((np.sum(omega)), self.d)
 
 
 class Mesh2D(Mesh):
@@ -542,35 +614,8 @@ class Mesh3D(Mesh):
     def __init__(self):
         pass
 
-# ASSEMBLER
-
-
-class Assembler(object):
-    'Common class for all Assembler of the Finite Element Method.'
-    def __init__(self):
-        pass
-
-
-class Assembler1D(Assembler):
-    '1 Dimensional Assembler.'
-    def __init__(self):
-        pass
-
-
-class Assembler2D(Assembler):
-    '2 Dimensional Assembler.'
-    def __init__(self):
-        pass
-
-
-class Assembler3D(Assembler):
-    '3 Dimensional Mesh.'
-    def __init__(self):
-        pass
-
 
 # GlobalSolver
-
 class GlobalSolver(object):
     'Common class for all GlobalSolver of the Finite Element Method.'
     def __init__(self):
@@ -588,9 +633,11 @@ class GlobalSolver1D(GlobalSolver):
         self.elements = self.mesh.elements  # Dictionary of elements
         self.element_solve = {}
 
-    def solve_elements(self):
-        for i in range(len(self.elements)):
-            self.element_solve[str(i)] = ElementSolver1D(self.elements[str(i)])
+    def assemble(self):
+        pass
+
+    def solve_global(self):
+        pass
 
 
 class GlobalSolver2D(GlobalSolver):
