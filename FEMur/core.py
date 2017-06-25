@@ -201,44 +201,106 @@ class Element1D(Element):
 
         return index
 
-    def jacobien(self):
-        return np.array([0.5 * self.nodes[str(0)].nodeDistance(
-                         self.nodes[str(1)]
-                         )])
+    def get_p(self):
+        # Gets the P matrix
+        p = [None] * self.nnodes  # create empty list of nnodes size
 
-    def detJacobien(self, jacobien):
-        return np.linalg.det(jacobien)
+        for i in range(self.nnodes):
+            if i == 0:
+                p[i] = 1
+            else:
+                p[i] = x ** i
 
-    def getK(self, E, A):
-        # Gets the stiffeness matrix.
-        # This should be modified to compute the matrix on its own.
-        # (Automate the process)
-        k_elements = np.zeros((self.nnodes * self.ndof,
-                               self.nnodes * self.ndof))
+        p = np.array(p)
+        self.p = p[0:self.nnodes]
 
-        for i in range(2):
-            for n in range(2):
-                if i == n:
-                    k_elements[i, n] = (-1) * (E * A) / self.L_e
-                else:
-                    k_elements[i, n] = E * A / self.L_e
+    def get_Me(self):
+        # Gets the M_e Matrix
+        Me = np.zeros((self.nnodes, self.nnodes))
+        expr = x
+        for i in range(self.nnodes):
+            for j in range(self.nnodes):
+                Me[i, j] = int(self.nodes[str(i)].x ** j)
 
-        return k_elements
+        self.Me = Me
 
-    def getF(self, rho, A, g):
-        # This should be modified to compute the vecteur on its own.
-        # (Automate the process)
-        f_elements = np.zeros((self.nnodes * self.ndof, 1))
+    def get_inv_Me(self):
+        self.get_Me()
+        self.inv_Me = np.linalg.inv(self.Me)
+        tol = 1e-15
+        self.inv_Me.real[np.abs(self.inv_Me.real) < tol] = 0.0
 
-        for i in range(len(f_elements)):
-            f_elements[i] = rho * A * g * self.L_e / 2
+    def get_N(self):
+        # Get the shape functions for the element
+        self.get_p()
+        self.get_inv_Me()
 
-        return f_elements
+        self.N = np.dot(self.p, self.inv_Me)
 
-    def getR(self, rho, M, g, E, A):
-        r_elements = np.zeros((self.nnodes * self.ndof, 1))
-        r_elements[0] = ((-1) * (rho * A * g * self.L_e/2)) + (E*A/self.L_e)
-        r_elements[1] = M * g
+    def get_N_prime(self):
+        if self.N is None:
+            self.get_N()
+        N_prime = [None] * self.nnodes
+        for i in range(self.nnodes):
+            N_prime[i] = sy.diff(self.N[i], x)
+
+        self.N_prime = N_prime
+
+    def set_conditions(self, conditions):
+        if len(conditions) == self.nnodes:
+            self.conditions = np.array(conditions)
+        else:
+            raise ValueError(
+                'Given conditions do not match the number of nodes'
+                )
+
+    def get_function(self):
+        if self.conditions is None:
+            raise ValueError(
+                'No conditions were given, please provide conditions using'
+                'provide_conditions().'
+                )
+        else:
+            function = np.dot(self.N, self.conditions)
+            function2 = function
+            for i in sy.preorder_traversal(function):
+                if isinstance(i, sy.Float) and abs(i) < 1e-15:
+                    function2 = function2.subs(i, round(i, 1))
+
+            self.function = function2
+
+    def get_function_prime(self):
+        if self.conditions is None:
+            raise ValueError(
+                'No conditions were given, please provide conditions using'
+                'provide_conditions().'
+                )
+        else:
+            function_prime = np.dot(self.N_prime, self.conditions)
+            function2 = function_prime
+            for i in sy.preorder_traversal(function_prime):
+                if isinstance(i, sy.Float) and i < 1e-15:
+                    function2 = function2.subs(i, round(i, 1))
+
+            self.function_prime = function2
+
+    def get_approximation(self, coordinate, round_to=4):
+        return round(self.function.subs(x, coordinate), round_to)
+
+    def validate_N(self):
+
+        validation_matrix = np.zeros((self.nnodes, self.nnodes))
+
+        for i in range(self.nnodes):
+            for j in range(self.nnodes):
+                validation_matrix[i, j] = self.N[i].subs(
+                    x, self.nodes[str(j)].x
+                    )
+
+        if validation_matrix.all() == np.identity(self.nnodes).all():
+            return True
+        else:
+            return False
 
 
 class Element2D(Element):
@@ -369,11 +431,13 @@ class Mesh(object):
 
 class Mesh1D(Mesh):
     '1 Dimensional Mesh.'
-    def __init__(self, domain, Number_of_elements, Nodes_per_element):
-        self.start = domain[0]                   # First 'x' of the domain
-        self.end = domain[1]                     # Last 'x' of the domain
-        self.num_elements = Number_of_elements   # Number of elements
+    def __init__(self, domain, Number_of_elements, Nodes_per_element,
+                 conditions):
+        self.start = domain[0]  # First 'x' of the domain
+        self.end = domain[1]  # Last 'x' of the domain
+        self.num_elements = Number_of_elements  # Number of elements
         self.nodes_elements = Nodes_per_element  # Number of nodes per element
+        self.conditions = conditions  # Conditions at the nodes (d^e)
 
         self.length = self.end - self.start      # Length of the domain
         self.num_nodes = (
@@ -393,7 +457,7 @@ class Mesh1D(Mesh):
             return Err
 
         else:
-            n_nodes = len(self.meshing[0])     # Checks the new created values
+            n_nodes = len(self.meshing[0])  # Checks the new created values
             n_elements = len(self.meshing[1])  # Checks the new created values
             output = f'The mesh contains {n_nodes} nodes and {n_elements} '\
                      'elements.'
@@ -409,7 +473,7 @@ class Mesh1D(Mesh):
         nodes = {}
         elements = {}
 
-        for i in range(self.num_nodes):          # Nodes Creation
+        for i in range(self.num_nodes):  # Nodes Creation
             nodes[str(i)] = (
                 Node1D((self.inside_node_distance * i) + self.start, i)
                 )
@@ -431,6 +495,31 @@ class Mesh1D(Mesh):
         self.meshing = [nodes, elements]
         return nodes, elements
 
+    def divide_conditions(self):
+        conditions_of_elements = {}  # Conditions for each elements
+        for i in range(self.num_elements):
+            element_conditions = []
+            for j in range(self.nodes_elements):
+                element_conditions.append(self.conditions[(i * j) + j])
+            conditions_of_elements[str(i)] = element_conditions
+
+        self.conditions_of_elements = conditions_of_elements
+
+    def solve_elements(self):
+        self.divide_conditions()
+        for i in self.elements.keys():
+            self.elements[i].get_N()
+            self.elements[i].get_N_prime()
+
+            self.elements[i].set_conditions(self.conditions_of_elements[i])
+            self.elements[i].get_function()
+
+    def show_elements_functions(self):
+        for i in self.elements.keys():
+            key = int(i)
+            print(f'Element({key}) has a function of: '
+                  f'{self.elements[i].function}')
+
 
 class Mesh2D(Mesh):
     '2 Dimensional Mesh.'
@@ -443,124 +532,8 @@ class Mesh3D(Mesh):
     def __init__(self):
         pass
 
-
-class ElementSolver(object):
-    'Common class for all element-based solvers'
-    def __init__(self):
-        pass
-
-
-class ElementSolver1D(ElementSolver):
-    '1 Dimensional Element-based Solver.'
-    def __init__(self, element):
-        self.element = element
-
-        self.nnodes = len(self.element.nodes)  # Number of nodes of the element
-        self.nodes = self.element.nodes        # Dictionary of nodes
-
-    def get_p(self):
-        # Gets the P matrix
-        p = [None] * self.nnodes  # create empty list of nnodes size
-
-        for i in range(self.nnodes):
-            if i == 0:
-                p[i] = 1
-            else:
-                p[i] = x ** i
-
-        p = np.array(p)
-        self.p = p[0:self.nnodes]
-
-    def get_Me(self):
-        # Gets the M_e Matrix
-        Me = np.zeros((self.nnodes, self.nnodes))
-        expr = x
-        for i in range(self.nnodes):
-            for j in range(self.nnodes):
-                Me[i, j] = int(self.nodes[str(i)].x ** j)
-
-        self.Me = Me
-
-    def get_inv_Me(self):
-        self.get_Me()
-        self.inv_Me = np.linalg.inv(self.Me)
-        tol = 1e-15
-        self.inv_Me.real[np.abs(self.inv_Me.real) < tol] = 0.0
-
-    def get_N(self):
-        # Get the shape functions for the element
-        self.get_p()
-        self.get_inv_Me()
-
-        self.N = np.dot(self.p, self.inv_Me)
-
-    def get_N_prime(self):
-        if self.N is None:
-            self.get_N()
-        N_prime = [None] * self.nnodes
-        for i in range(self.nnodes):
-            N_prime[i] = sy.diff(self.N[i], x)
-
-        self.N_prime = N_prime
-
-    def set_conditions(self, conditions):
-        if len(conditions) == self.nnodes:
-            self.conditions = np.array(conditions)
-        else:
-            raise ValueError(
-                'Given conditions do not match the number of nodes'
-                )
-
-    def get_function(self):
-        if self.conditions is None:
-            raise ValueError(
-                'No conditions were given, please provide conditions using'
-                'provide_conditions().'
-                )
-        else:
-            function = np.dot(self.N, self.conditions)
-            function2 = function
-            for i in sy.preorder_traversal(function):
-                if isinstance(i, sy.Float) and abs(i) < 1e-15:
-                    function2 = function2.subs(i, round(i, 1))
-
-            self.function = function2
-
-    def get_function_prime(self):
-        if self.conditions is None:
-            raise ValueError(
-                'No conditions were given, please provide conditions using'
-                'provide_conditions().'
-                )
-        else:
-            function_prime = np.dot(self.N_prime, self.conditions)
-            function2 = function_prime
-            for i in sy.preorder_traversal(function_prime):
-                if isinstance(i, sy.Float) and i < 1e-15:
-                    function2 = function2.subs(i, round(i, 1))
-
-            self.function_prime = function2
-
-    def get_approximation(self, coordinate, round_to=4):
-        return round(self.function.subs(x, coordinate), round_to)
-
-    def validate_N(self):
-
-        validation_matrix = np.zeros((self.nnodes, self.nnodes))
-
-        for i in range(self.nnodes):
-            for j in range(self.nnodes):
-                validation_matrix[i, j] = self.N[i].subs(
-                    x, self.nodes[str(j)].x
-                    )
-
-        if validation_matrix.all() == np.identity(self.nnodes).all():
-            return True
-        else:
-            return False
-
-
 # ASSEMBLER
+
 
 class Assembler(object):
     'Common class for all Assembler of the Finite Element Method.'
@@ -590,22 +563,24 @@ class Assembler3D(Assembler):
 
 class GlobalSolver(object):
     'Common class for all GlobalSolver of the Finite Element Method.'
+    def __init__(self):
+        pass
+
+
+class GlobalSolver1D(GlobalSolver):
+    '1 Dimensional GlobalSolver.'
+
     def __init__(self, mesh):
         self.mesh = mesh
 
         self.nnodes = len(self.mesh.nodes)  # Number of nodes of the element
         self.nodes = self.mesh.nodes        # Dictionary of nodes
         self.elements = self.mesh.elements  # Dictionary of elements
+        self.element_solve = {}
 
     def solve_elements(self):
         for i in range(len(self.elements)):
-            self.elements[str(i)]
-
-
-class GlobalSolver1D(GlobalSolver):
-    '1 Dimensional GlobalSolver.'
-    def __init__(self):
-        pass
+            self.element_solve[str(i)] = ElementSolver1D(self.elements[str(i)])
 
 
 class GlobalSolver2D(GlobalSolver):
