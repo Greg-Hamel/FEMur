@@ -18,6 +18,7 @@ from scipy import pi
 from scipy.special.orthogonal import p_roots
 import sympy as sy
 from sympy.abc import x, y
+import matplotlib.pyplot as plt
 
 # NODE
 
@@ -163,8 +164,10 @@ class Element1D(Element):
 
         self.node_table = node_table        # Table with nodes
         self.L_e = self.node_table[-1].nodeDistance(self.node_table[0])
-        self.nodes = {}                     # Dictionary with nodes
+        self.start = node_table[0].x
+        self.end = node_table[-1].x
 
+        self.nodes = {}                     # Dictionary with nodes
         for i in range(len(node_table)):
             self.nodes[str(i)] = node_table[i]
 
@@ -174,6 +177,7 @@ class Element1D(Element):
         self.Ne = None
         self.Be = None
         self.trial = None
+        self.de = None
 
         self.number = Element1D.total_elements
         Element1D.total_elements += 1       # Counter for number of elements.
@@ -480,11 +484,12 @@ class Mesh1D(Mesh):
                           + self.num_elements * (self.nodes_elements - 2)
                           )
         self.L_element = self.length / self.num_elements
-        self.inside_node_distance = self.L_element / (self.nodes_elements - 1)
+        self.node_distance = self.L_element / (self.nodes_elements - 1)
 
         self.meshing = None
         self.Le_container = None
         self.N = None
+        self.calculated = False  # True when elements trials are calculated
 
     def __str__(self):
         # Prints the element-node interaction.
@@ -514,7 +519,7 @@ class Mesh1D(Mesh):
 
         for i in range(self.num_nodes):  # Nodes Creation
             nodes[str(i)] = (
-                Node1D((self.inside_node_distance * i) + self.start, i)
+                Node1D((self.node_distance * i) + self.start, i)
                 )
 
         for i in range(self.num_elements):  # Elements Creation
@@ -572,15 +577,19 @@ class Mesh1D(Mesh):
             print(f"Injecting Conditions to Element({key})'s Shape Functions")
             self.elements[i].set_conditions(self.de[i])
 
-            print(f"Calculating Element({key})'s trial functions\n")
+            print(f"Calculating Element({key})'s trial functions")
             self.elements[i].get_trial()
-            print(self.elements[i].trial)
+
+            print(f"Calculating Element({key})'s trial derivative functions\n")
+            self.elements[i].get_trial_prime()
+
+            self.calculated = True
 
     def print_elements_trial(self):
         # Shows each element's trial function
         for i in self.elements.keys():
             if self.elements[i].trial is None:
-                self.elements[i].get_trial()
+                self.solve_elements()
 
             key = int(i)
             print(f'Element({key}) has a trial function of: '
@@ -634,6 +643,59 @@ class Mesh1D(Mesh):
                                    self.Le_container[i])
 
         self.omega = np.dot((np.sum(omega)), self.d)
+
+    def get_max_error(self, expected, approximated):
+        pass
+
+    def plot_trial_comparison(self, real_equation):
+        if self.calculated is False:
+            self.solve_elements()
+        plot_x = np.linspace(self.start, self.end)
+        equation = sy.sympify(real_equation)
+        equation = sy.lambdify(x, equation)
+
+        fem = []
+        for i in self.elements.keys():
+            f = sy.lambdify(x, self.elements[i].trial)
+            for j in plot_x:
+                if j >= self.elements[i].start and j <= self.elements[i].end:
+                    if i == '0' and j == self.elements[i].start:
+                        fem.append(f(j))
+                    elif i != '0' and j == self.elements[i].start:
+                        pass
+                    else:
+                        fem.append(f(j))
+                else:
+                    pass
+
+        print(fem)
+        plt.plot(plot_x, equation(plot_x), 'b-', plot_x, fem, 'r-')
+        plt.show()
+
+    def plot_trial_derivative_comparison(self, real_equation):
+        if self.calculated is False:
+            self.solve_elements()
+
+        plot_x = np.linspace(self.start, self.end)
+        equation = sy.sympify(real_equation)
+        equation = sy.lambdify(x, equation)
+
+        fem = []
+        for i in self.elements.keys():
+            f_prime = sy.lambdify(x, self.elements[i].trial_prime)
+            for j in plot_x:
+                if j >= self.elements[i].start and j <= self.elements[i].end:
+                    if i == '0' and j == self.elements[i].start:
+                        fem.append(f_prime(j))
+                    elif i != '0' and j == self.elements[i].start:
+                        pass
+                    else:
+                        fem.append(f_prime(j))
+                else:
+                    pass
+
+        plt.plot(plot_x, equation(plot_x), 'b-', plot_x, fem, 'r-')
+        plt.show()
 
 
 class Mesh2D(Mesh):
