@@ -348,38 +348,49 @@ class Element2D(Element):
     def __init__(self, element_type, node_table):
         self.number = Element2D.total_elements
         self.e_type = element_type  # 'T' for triangle, 'Q' for quad
-        self.nodes_number = len(node_table)  # The number of nodes per element
+        self.num_nodes = len(node_table)  # The number of nodes per element
         self.nodes = {}  # Dictionary with nodes
-        for i in range(self.nodes_number):
+        for i in range(self.num_nodes):
             self.nodes[str(i)] = node_table[i]
         Element2D.total_elements += 1
 
 
 class Triangular(Element2D):
     'Common class for all Triangular 2D elements'
-    def __init__(self):
-        pass
+    def __init__(self, node_table, using_directly=None):
+        Element2D.__init__(self, "T", node_table)
+        # If using Triangular Directly, define self.p, self.ksi_ref,
+        # self.eta_ref, self.num_dots in your script.
 
-    def shape(self):
-        for i in range(self.num_dots):
-            self.shape[i, :] = self.basis  # sub-in ksi_ref and eta_ref
+    def provide_p(self, p_matrix):
+        self.p = p_matrix
 
-        # calculate inverse of self.shape
-        # shape_inv =
+    def provide_ksi_ref(self, ksi_ref):
+        self.ksi_ref = ksi_ref
 
-        # Calculate the shape functions matrix (N)
-        # self.N = self.basis * shape_inv
+    def provide_eta_ref(self, eta_ref):
+        self.eta_ref = eta_ref
 
-    def validate_shape(self):
-        pass
-        # To be completed later on. Based on main2D.m (Cours 6)
-        # for i in range(self.num_dots):
+    def provide_eta_ref(self, num_dots):
+        self.num_dots = num_dots
 
-    def derive_shape(self):
-        B = zeros((2, self.num_dots))
-        B[1, :] = sy.diff(self.shape)
 
-        self.derived_shape
+class T3(Triangular):
+    "Class representing the T3 shape."
+    eta = sy.symbols('eta')
+    ksi = sy.symbols('ksi')
+
+    def __init__(self, node_table):
+        Triangular.__init__(self, node_table)
+        self.p = np.array([1, ksi, eta])
+        self.ksi_ref = np.array([0.0, 1.0, 0.0])
+        self.eta_ref = np.array([0.0, 0.0, 1.0])
+        self.num_dots = len(self.ksi_ref)
+        self.shape = np.zeros((self.num_dots, self.num_dots))
+
+        if self.num_nodes != self.num_dots:
+            raise ValueError(f'Number of nodes provided is {self.num_nodes},'
+                             '{self.num_dots} expected.')
 
 
 class T6(Triangular):
@@ -387,12 +398,17 @@ class T6(Triangular):
     eta = sy.symbols('eta')
     ksi = sy.symbols('ksi')
 
-    def __init__(self):
-        self.basis = np.array([1, ksi, eta, ksi * eta, ksi * ksi, eta * eta])
+    def __init__(self, node_table):
+        Triangular.__init__(self, node_table)
+        self.p = np.array([1, ksi, eta, ksi * eta, ksi * ksi, eta * eta])
         self.ksi_ref = np.array([0.0, 0.5, 1.0, 0.5, 0.0, 0.0])
         self.eta_ref = np.array([0.0, 0.0, 0.0, 0.5, 1.0, 0.5])
         self.num_dots = len(self.ksi_ref)
         self.shape = np.zeros((self.num_dots, self.num_dots))
+
+        if self.num_nodes != self.num_dots:
+            raise ValueError(f'Number of nodes provided is {self.num_nodes},'
+                             '{self.num_dots} expected.')
 
 
 class Quad(Element2D):
