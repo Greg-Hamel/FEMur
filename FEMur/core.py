@@ -358,6 +358,18 @@ class Element2D(Element):
         self.Me = None
         self.Ne = None
 
+    def provide_p(self, p_matrix):
+        self.p = p_matrix
+
+    def provide_ksi_ref(self, ksi_ref):
+        self.ksi_ref = ksi_ref
+
+    def provide_eta_ref(self, eta_ref):
+        self.eta_ref = eta_ref
+
+    def provide_eta_ref(self, num_dots):
+        self.num_dots = num_dots
+
     def p_function(self, eval_coordinates):
         # 'eval_coordinates' is a table with [x_coord, y_coord]
         # Returns the p_matrix evaluated a the given point (x, y).
@@ -413,18 +425,6 @@ class Triangular(Element2D):
         Element2D.__init__(self, "T", node_table)
         # If using Triangular Directly, define self.p, self.ksi_ref,
         # self.eta_ref, self.num_dots in your script.
-
-    def provide_p(self, p_matrix):
-        self.p = p_matrix
-
-    def provide_ksi_ref(self, ksi_ref):
-        self.ksi_ref = ksi_ref
-
-    def provide_eta_ref(self, eta_ref):
-        self.eta_ref = eta_ref
-
-    def provide_eta_ref(self, num_dots):
-        self.num_dots = num_dots
 
 
 class T3(Triangular):
