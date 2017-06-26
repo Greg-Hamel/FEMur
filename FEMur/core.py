@@ -549,7 +549,6 @@ class Mesh1D(Mesh):
                 Le[i][j, (int(i) * (self.nodes_elements - 1)) + j] = 1
 
         self.Le_container = Le
-        print(f'Le_containter: {self.Le_container}')
 
     def get_de_container(self):
         # Get the dictionary which contains all d^e matrices
@@ -569,18 +568,15 @@ class Mesh1D(Mesh):
             key = int(i)
             print(f"Calculating Element({key})'s shape functions")
             self.elements[i].get_Ne()
-            print(self.elements[i].Ne)
 
             validation = self.elements[i].validate_Ne()
             print(f'Validation of shape function is: {validation}')
 
             print(f"Calculating Element({key})'s shape functions derivatives")
             self.elements[i].get_Be()
-            print(self.elements[i].Be)
 
             print(f"Injecting Conditions to Element({key})'s Shape Functions")
             self.elements[i].set_conditions(self.de[i])
-            print(self.elements[i].de)
 
             print(f"Calculating Element({key})'s trial functions")
             self.elements[i].get_trial()
