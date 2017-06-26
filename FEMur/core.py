@@ -354,6 +354,10 @@ class Element2D(Element):
             self.nodes[str(i)] = node_table[i]
         Element2D.total_elements += 1
 
+        self.p = None
+        self.Me = None
+        self.Ne = None
+
     def p_function(self, eval_coordinates):
         # 'eval_coordinates' is a table with [x_coord, y_coord]
         # Returns the p_matrix evaluated a the given point (x, y).
@@ -361,7 +365,6 @@ class Element2D(Element):
         for i in range(self.num_nodes):
             returned_p[i] = self.p[i].subs([(x, eval_coordinates[0]),
                                             (y, eval_coordinates[1])])
-
         return np.array(returned_p)
 
     def get_Me(self):
@@ -371,6 +374,37 @@ class Element2D(Element):
             Me[i, :] = p_function(self.nodes[str(i)].x, self.nodes[str(i)].y)
 
         self.Me = Me
+
+    def get_inv_Me(self):
+        # Get the inverse of the M_e Matrix
+        self.get_Me()
+        self.inv_Me = np.linalg.inv(self.Me)
+        tol = 1e-15
+        self.inv_Me.real[np.abs(self.inv_Me.real) < tol] = 0.0
+
+    def get_Ne(self):
+        # Get the shape functions for the element.
+        if self.p is None:
+            self.get_p()
+        if self.Me is None:
+            self.get_inv_Me()
+
+        self.Ne = np.dot(self.p, self.inv_Me)
+
+    def get_Be(self):
+        if self.Ne is None:
+            self.get_Ne()
+
+        N_prime = np.zeros((2, self.num_nodes))
+        for i in range(2):
+            for j in range(self.num_nodes):
+                if i == 0:
+                    N_prime[i, j] = sy.diff(self.Ne[i], x)
+                elif i == 1:
+                    N_prime[i, j] = sy.diff(self.Ne[i], y)
+                else:
+                    raise ValueError('Get_Be() tried to go over the number of'
+                                     'dimensions.')
 
 
 class Triangular(Element2D):
