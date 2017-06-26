@@ -354,6 +354,24 @@ class Element2D(Element):
             self.nodes[str(i)] = node_table[i]
         Element2D.total_elements += 1
 
+    def p_function(self, eval_coordinates):
+        # 'eval_coordinates' is a table with [x_coord, y_coord]
+        # Returns the p_matrix evaluated a the given point (x, y).
+        returned_p = []
+        for i in range(self.num_nodes):
+            returned_p[i] = self.p[i].subs([(x, eval_coordinates[0]),
+                                            (y, eval_coordinates[1])])
+
+        return np.array(returned_p)
+
+    def get_Me(self):
+        # Gets the M_e Matrix
+        Me = np.zeros((self.num_nodes, self.num_nodes))
+        for i in range(self.num_nodes):
+            Me[i, :] = p_function(self.nodes[str(i)].x, self.nodes[str(i)].y)
+
+        self.Me = Me
+
 
 class Triangular(Element2D):
     'Common class for all Triangular 2D elements'
@@ -377,12 +395,12 @@ class Triangular(Element2D):
 
 class T3(Triangular):
     "Class representing the T3 shape."
-    eta = sy.symbols('eta')
-    ksi = sy.symbols('ksi')
+    y = sy.symbols('y')
+    x = sy.symbols('x')
 
     def __init__(self, node_table):
         Triangular.__init__(self, node_table)
-        self.p = np.array([1, ksi, eta])
+        self.p = np.array([1, x, y])
         self.ksi_ref = np.array([0.0, 1.0, 0.0])
         self.eta_ref = np.array([0.0, 0.0, 1.0])
         self.num_dots = len(self.ksi_ref)
@@ -395,12 +413,12 @@ class T3(Triangular):
 
 class T6(Triangular):
     "Class representing the T6 shape."
-    eta = sy.symbols('eta')
-    ksi = sy.symbols('ksi')
+    y = sy.symbols('y')
+    x = sy.symbols('x')
 
     def __init__(self, node_table):
         Triangular.__init__(self, node_table)
-        self.p = np.array([1, ksi, eta, ksi * eta, ksi * ksi, eta * eta])
+        self.p = np.array([1, x, y, x * y, x * x, y * y])
         self.ksi_ref = np.array([0.0, 0.5, 1.0, 0.5, 0.0, 0.0])
         self.eta_ref = np.array([0.0, 0.0, 0.0, 0.5, 1.0, 0.5])
         self.num_dots = len(self.ksi_ref)
