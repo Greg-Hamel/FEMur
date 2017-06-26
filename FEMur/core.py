@@ -546,9 +546,10 @@ class Mesh1D(Mesh):
         for i in self.elements.keys():
             Le[i] = np.zeros((self.nodes_elements, self.num_nodes))
             for j in range(self.nodes_elements):
-                Le[i][j, int(i) + j] = 1
+                Le[i][j, (int(i) * (self.nodes_elements - 1)) + j] = 1
 
         self.Le_container = Le
+        print(f'Le_containter: {self.Le_container}')
 
     def get_de_container(self):
         # Get the dictionary which contains all d^e matrices
@@ -568,15 +569,18 @@ class Mesh1D(Mesh):
             key = int(i)
             print(f"Calculating Element({key})'s shape functions")
             self.elements[i].get_Ne()
+            print(self.elements[i].Ne)
 
             validation = self.elements[i].validate_Ne()
             print(f'Validation of shape function is: {validation}')
 
             print(f"Calculating Element({key})'s shape functions derivatives")
             self.elements[i].get_Be()
+            print(self.elements[i].Be)
 
             print(f"Injecting Conditions to Element({key})'s Shape Functions")
             self.elements[i].set_conditions(self.de[i])
+            print(self.elements[i].de)
 
             print(f"Calculating Element({key})'s trial functions")
             self.elements[i].get_trial()
@@ -645,13 +649,44 @@ class Mesh1D(Mesh):
 
         self.omega = np.dot((np.sum(omega)), self.d)
 
-    def get_error_L2(self, expected):
+    def get_trial_L2(self, expected):
         # Get the L2 norm error for the given expected function vs FEM results
         integral = 0
         for i in self.elements.keys():
             ksi = sy.symbols('ksi')
             expr_exp = sy.sympify(expected)
             expr_approx = self.elements[i].trial
+
+            expr_error = (expr_exp - expr_approx) ** 2
+
+            domain = [self.elements[i].start, self.elements[i].end]
+            order = sy.degree(expr_error, x)
+
+            length = domain[-1] - domain[0]
+            npg = ceil((order + 1) / 2)
+
+            new_x = (0.5 * (domain[0] + domain[1])
+                     + 0.5 * ksi * (domain[1] - domain[0]))
+            expr = expr_error.subs(x, new_x)
+
+            [new_ksi, w] = p_roots(npg)
+
+            for j in range(len(new_ksi)):
+                integral = (integral
+                            + (w[j] * length * 0.5 * expr.subs(ksi,
+                                                               new_ksi[j]))
+                            )
+
+        print(integral)
+        self.L2_error = integral
+
+    def get_trial_derivative_L2(self, expected):
+        # Get the L2 norm error for the given expected function vs FEM results
+        integral = 0
+        for i in self.elements.keys():
+            ksi = sy.symbols('ksi')
+            expr_exp = sy.sympify(expected)
+            expr_approx = self.elements[i].trial_prime
 
             expr_error = (expr_exp - expr_approx) ** 2
 
@@ -698,7 +733,7 @@ class Mesh1D(Mesh):
                     pass
 
         print(fem)
-        plt.plot(plot_x, equation(plot_x), 'b-', plot_x, fem, 'r-')
+        plt.plot(plot_x, equation(plot_x), 'b-', plot_x, fem, 'r--')
         plt.show()
 
     def plot_trial_derivative_comparison(self, real_equation):
@@ -723,7 +758,7 @@ class Mesh1D(Mesh):
                 else:
                     pass
 
-        plt.plot(plot_x, equation(plot_x), 'b-', plot_x, fem, 'r-')
+        plt.plot(plot_x, equation(plot_x), 'b-', plot_x, fem, 'r--')
         plt.show()
 
 
