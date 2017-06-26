@@ -1,7 +1,7 @@
 """
-FEM.py
+FEMur.py
 
-This module introduces a few concepts of the Finite Element Method (FEM)and
+This module introduces a few concepts of the Finite Element Method (FEM) and
 aims at providing a number of tools for solving FEM-related problems.
 
 Its development was started in order to solve problems and projects related to
@@ -344,75 +344,15 @@ class Element1D(Element):
 class Element2D(Element):
     'Defines the Planar Elements with its nodes and shape functions'
     total_elements = 0
-    triangle_nodes = [3, 4, 6, 7, 9]
 
-    def __init__(self, element_type, nodes, edge_nodes=False,
-                 center_node=False):
+    def __init__(self, element_type, node_table):
         self.number = Element2D.total_elements
-        self.e_type = element_type        # 'T' for triangle, 'Q' for quad
-        self.e_nodes_number = len(nodes)  # The number of nodes per element
-        self.nodes = nodes                # Nodes table
-        self.edge = edge_nodes            # Edge Nodes or not.
-        self.element_type = self.e_type + str(self.e_nodes_number)
-        self.centered = center_node
+        self.e_type = element_type  # 'T' for triangle, 'Q' for quad
+        self.nodes_number = len(node_table)  # The number of nodes per element
+        self.nodes = {}  # Dictionary with nodes
+        for i in range(self.nodes_number):
+            self.nodes[str(i)] = node_table[i]
         Element2D.total_elements += 1
-
-    def get_ref_values(self):
-        """Provide an array with 'x' and 'y' nodal values of the shape
-        function."""
-        if self.e_type == 'T':   # Triangle element
-            if self.e_nodes_number not in self.triangle_nodes:
-                Err = 'The number of nodes is not resolvable for now. Only 3,'\
-                      '4, 6, or 7 nodes possible per triangle elements.'
-                print(Err)
-                return None
-
-            self.table_x_ref = np.array([0, 1, 0])
-            self.table_y_ref = np.array([0, 0, 1])
-            if self.edge is True and self.centered is False:  # Edge nodes
-                nodes_per_side = int((self.e_nodes_number - 3) / 3)
-                spacing = 1.0 / (nodes_per_side + 1.0)
-                for i in range(3):   # Iterate over all sides
-                    for n in range(nodes_per_side):  # Iterate over all nodes
-                        if i == 0:
-                            self.table_x_ref = np.append(
-                                self.table_x_ref,
-                                np.array(spacing * (n + 1))
-                            )
-                            self.table_y_ref = np.append(
-                                self.table_y_ref, np.array(0)
-                            )
-                        elif i == 1:
-                            self.table_x_ref = np.append(
-                                self.table_x_ref, np.array(
-                                    spacing * ((nodes_per_side - (n + 1)) + 1)
-                                )
-                            )
-                            self.table_y_ref = np.append(
-                                self.table_y_ref, np.array(spacing * (n + 1))
-                            )
-                        elif i == 2:
-                            self.table_x_ref = np.append(
-                                self.table_x_ref, np.array(0)
-                            )
-                            self.table_y_ref = np.append(
-                                self.table_y_ref, np.array(
-                                    spacing * ((nodes_per_side - (n + 1)) + 1)
-                                )
-                            )
-                        else:
-                            Err = "Nodes are trying to be created on a "\
-                                  "fourth triangle side which doesn't exist."
-                            print(Err)
-                            return None
-
-        return self.table_x_ref, self.table_y_ref
-
-    def get_eta(self):
-        pass
-
-    def get_ksi(self):
-        pass
 
 
 class Triangular(Element2D):
@@ -728,7 +668,6 @@ class Mesh1D(Mesh):
                 else:
                     pass
 
-        print(fem)
         plt.plot(plot_x, equation(plot_x), 'b-', plot_x, fem, 'r--')
         plt.show()
 
