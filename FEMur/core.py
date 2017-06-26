@@ -19,6 +19,7 @@ from scipy.special.orthogonal import p_roots
 import sympy as sy
 from sympy.abc import x, y
 import matplotlib.pyplot as plt
+from math import *
 
 # NODE
 
@@ -644,8 +645,36 @@ class Mesh1D(Mesh):
 
         self.omega = np.dot((np.sum(omega)), self.d)
 
-    def get_max_error(self, expected, approximated):
-        pass
+    def get_error_L2(self, expected):
+        # Get the L2 norm error for the given expected function vs FEM results
+        integral = 0
+        for i in self.elements.keys():
+            ksi = sy.symbols('ksi')
+            expr_exp = sy.sympify(expected)
+            expr_approx = self.elements[i].trial
+
+            expr_error = (expr_exp - expr_approx) ** 2
+
+            domain = [self.elements[i].start, self.elements[i].end]
+            order = sy.degree(expr_error, x)
+
+            length = domain[-1] - domain[0]
+            npg = ceil((order + 1) / 2)
+
+            new_x = (0.5 * (domain[0] + domain[1])
+                     + 0.5 * ksi * (domain[1] - domain[0]))
+            expr = expr_error.subs(x, new_x)
+
+            [new_ksi, w] = p_roots(npg)
+
+            for j in range(len(new_ksi)):
+                integral = (integral
+                            + (w[j] * length * 0.5 * expr.subs(ksi,
+                                                               new_ksi[j]))
+                            )
+
+        print(integral)
+        self.L2_error = integral
 
     def plot_trial_comparison(self, real_equation):
         if self.calculated is False:
