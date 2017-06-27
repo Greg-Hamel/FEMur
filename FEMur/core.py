@@ -403,7 +403,6 @@ class Element2D(Element):
     def get_inv_Me_ref(self):
         # Get the inverse of the M_e Matrix
         self.get_Me_ref()
-        print(self.Me_ref)
         self.inv_Me_ref = np.linalg.inv(self.Me_ref)
         tol = 1e-15
         self.inv_Me_ref.real[np.abs(self.inv_Me_ref.real) < tol] = 0.0
@@ -474,7 +473,7 @@ class Element2D(Element):
 
         jacobien = np.dot(self.GN_ref, self.xy_coord)
 
-        self.Je = jacobien
+        self.Je = np.array(jacobien, dtype='float')
 
     def get_detJe(self):
         if self.Je is None:
