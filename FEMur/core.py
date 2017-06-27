@@ -358,6 +358,7 @@ class Element2D(Element):
         self.Me_ref = None
         self.Ne_ref = None
         self.GN_ref = None
+        self.de = None
 
     def provide_p_ref(self, p_matrix):
         self.p_ref = p_matrix
@@ -373,6 +374,9 @@ class Element2D(Element):
 
     def provide_ycoord(self, y_coord):
         self.y_coord = y_coord
+
+    def provide_de(self, de):
+        self.de = de
 
     def p_function_ref(self, eval_coordinates):
         # 'eval_coordinates' is a table with [ksi_coord, eta_coord]
@@ -488,6 +492,22 @@ class Element2D(Element):
         Be = np.dot(np.linalg.inv(self.Je), self.GN_ref)
 
         self.Be = Be
+
+    def get_trial(self):
+        # Get the trial function
+        if self.de is None:
+            raise ValueError(
+                'No conditions were given, please provide conditions using'
+                'provide_de().'
+                )
+        else:
+            trial = np.dot(self.Ne_ref, self.de)
+            trial2 = trial
+            for i in sy.preorder_traversal(trial):
+                if isinstance(i, sy.Float) and abs(i) < 1e-15:
+                    trial2 = trial2.subs(i, round(i, 1))
+
+            self.trial = trial2
 
 
 class Triangular(Element2D):
