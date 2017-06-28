@@ -18,6 +18,7 @@ from scipy import pi
 from scipy.special.orthogonal import p_roots
 import sympy as sy
 from sympy.abc import x, y
+from sympy import pprint
 import matplotlib.pyplot as plt
 from math import *
 
@@ -363,8 +364,8 @@ class Element2D(Element):
     def provide_p_ref(self, p_matrix):
         self.p_ref = p_matrix
 
-    def provide_ksi_ref(self, ksi_ref):
-        self.ksi_ref = ksi_ref
+    def provide_xi_ref(self, xi_ref):
+        self.xi_ref = xi_ref
 
     def provide_eta_ref(self, eta_ref):
         self.eta_ref = eta_ref
@@ -376,95 +377,96 @@ class Element2D(Element):
         self.y_coord = y_coord
 
     def provide_de(self, de):
-        self.de = de
+        self.de = de.T
 
     def p_function_ref(self, eval_coordinates):
-        # 'eval_coordinates' is a table with [ksi_coord, eta_coord]
-        # Returns the p_matrix evaluated a the given point (ksi, eta).
+        # 'eval_coordinates' is a table with [xi_coord, eta_coord]
+        # Returns the p_matrix evaluated a the given point (xi, eta).
 
-        ksi, eta = sy.symbols('ksi eta')
+        xi, eta = sy.symbols('xi eta')
 
-        returned_p = [None] * self.num_nodes
+        returned_p = sy.zeros(1, self.num_nodes)
         for i in range(self.num_nodes):
             if i == 0:
                 returned_p[i] = 1.0
             else:
-                returned_p[i] = self.p_ref[i].subs([(ksi, eval_coordinates[0]),
+                returned_p[i] = self.p_ref[i].subs([(xi, eval_coordinates[0]),
                                                    (eta, eval_coordinates[1])])
-        return np.array(returned_p)
+
+        return returned_p
 
     def get_Me_ref(self):
-        # Gets the M_e Matrix in the ksi and eta domain
-        Me = np.zeros((self.num_nodes, self.num_nodes))
+        # Gets the M_e Matrix in the xi and eta domain
+        Me = sy.zeros(self.num_nodes)
 
         for i in range(self.num_nodes):
             inp = self.p_function_ref([self.nodes[str(i)].x,
                                        self.nodes[str(i)].y])
             Me[i, :] = inp
 
-        self.Me_ref = np.array(Me)
+        self.Me_ref = Me
 
     def get_inv_Me_ref(self):
         # Get the inverse of the M_e Matrix
-        self.get_Me_ref()
-        self.inv_Me_ref = np.linalg.inv(self.Me_ref)
-        tol = 1e-15
-        self.inv_Me_ref.real[np.abs(self.inv_Me_ref.real) < tol] = 0.0
+        if self.Me_ref is None:
+            self.get_Me_ref()
+
+        self.inv_Me_ref = self.Me_ref.inv()
 
     def get_Ne_ref(self):
-        # Get the shape functions for the element in the ksi and eta domain
+        # Get the shape functions for the element in the xi and eta domain
         if self.p_ref is None:
             self.get_p_ref()
         if self.Me_ref is None:
             self.get_inv_Me_ref()
 
-        self.Ne_ref = np.dot(self.p_ref, self.inv_Me_ref)
+        self.Ne_ref = sy.Matrix(self.p_ref * self.inv_Me_ref)
 
     def validate_Ne_ref(self):
         # Validate the N_e matrix by providing nodes 'x' values. In order for
         # this to be validated as "Good", it has to return the identity matrix.
-        ksi, eta = sy.symbols('ksi eta')
+        xi, eta = sy.symbols('xi eta')
 
-        validation_matrix = np.zeros((self.num_nodes, self.num_nodes))
+        validation_matrix = sy.zeros(self.num_nodes)
 
         for i in range(self.num_nodes):
             for j in range(self.num_nodes):
                 validation_matrix[i, j] = self.Ne_ref[i].subs(
-                    [(ksi, self.nodes[str(j)].x), (eta, self.nodes[str(j)].y)]
+                    [(xi, self.nodes[str(j)].x), (eta, self.nodes[str(j)].y)]
                     )
 
-        if validation_matrix.all() == np.identity(self.num_nodes).all():
+        if validation_matrix == sy.eye(self.num_nodes):
             return True
         else:
             return False
 
     def get_GN_ref(self):
         # Get the dot product of the gradient operator and the  shape functions
-        ksi, eta = sy.symbols('ksi eta')
+        xi, eta = sy.symbols('xi eta')
 
         if self.Ne_ref is None:
             self.get_Ne_ref()
 
-        GN_ksi = [None] * self.num_nodes
+        GN_xi = [None] * self.num_nodes
         GN_eta = [None] * self.num_nodes
         for i in range(2):
             for j in range(self.num_nodes):
                 if i == 0:
-                    GN_ksi[j] = sy.diff(self.Ne_ref[j], ksi)
+                    GN_xi[j] = sy.diff(self.Ne_ref[j], xi)
                 elif i == 1:
                     GN_eta[j] = sy.diff(self.Ne_ref[j], eta)
                 else:
                     raise ValueError('Get_Be() tried to go over the number of'
                                      'dimensions.')
 
-        self.GN_ref = np.array([GN_ksi, GN_eta])
+        self.GN_ref = sy.Matrix([GN_xi, GN_eta])
 
     def get_xy_coord_matrix(self):
         # Get a matrix contain the x coordinates at its first column and the
         # y coordinates as its second column.
-        xy_coord = np.zeros((self.num_nodes, 2))
+        xy_coord = sy.zeros(self.num_nodes, 2)
         for i in range(self.num_nodes):
-            xy_coord[i, :] = np.array([self.x_coord[i], self.y_coord[i]])
+            xy_coord[i, :] = sy.Matrix([[self.x_coord[i], self.y_coord[i]]])
 
         self.xy_coord = xy_coord
 
@@ -475,21 +477,21 @@ class Element2D(Element):
         if self.GN_ref is None:
             self.get_GN_ref()
 
-        jacobien = np.dot(self.GN_ref, self.xy_coord)
+        jacobien = self.GN_ref * self.xy_coord
 
-        self.Je = np.array(jacobien, dtype='float')
+        self.Je = jacobien
 
     def get_detJe(self):
         if self.Je is None:
             self.get_Je()
 
-        detJe = np.linalg.det(self.Je)
+        detJe = self.Je.det()
 
         self.detJe = detJe
 
     def get_Be(self):
         # Get the B_e matrix
-        Be = np.dot(np.linalg.inv(self.Je), self.GN_ref)
+        Be = self.Je.inv.dot(self.GN_ref)
 
         self.Be = Be
 
@@ -501,7 +503,7 @@ class Element2D(Element):
                 'provide_de().'
                 )
         else:
-            trial = np.dot(self.Ne_ref, self.de)
+            trial = self.Ne_ref.dot(self.de)
             trial2 = trial
             for i in sy.preorder_traversal(trial):
                 if isinstance(i, sy.Float) and abs(i) < 1e-15:
@@ -514,22 +516,22 @@ class Triangular(Element2D):
     'Common class for all Triangular 2D elements'
     def __init__(self, node_table, using_directly=None):
         Element2D.__init__(self, "T", node_table)
-        # If using Triangular Directly, define self.p, self.ksi_ref,
+        # If using Triangular Directly, define self.p, self.xi_ref,
         # self.eta_ref, self.num_dots in your script.
 
 
 class T3(Triangular):
     "Class representing the T3 shape."
-    ksi = sy.symbols('ksi')
+    xi = sy.symbols('xi')
     eta = sy.symbols('eta')
 
     def __init__(self, node_table):
         Triangular.__init__(self, node_table)
-        self.p = np.array([1, ksi, eta])
-        self.ksi_ref = np.array([0.0, 1.0, 0.0])
-        self.eta_ref = np.array([0.0, 0.0, 1.0])
-        self.num_dots = len(self.ksi_ref)
-        self.shape = np.zeros((self.num_dots, self.num_dots))
+        self.p_ref = sy.Matrix([1, xi, eta])
+        self.xi_ref = sy.Matrix([0.0, 1.0, 0.0])
+        self.eta_ref = sy.Matrix([0.0, 0.0, 1.0])
+        self.num_dots = len(self.xi_ref)
+        self.shape = sy.zeros(self.num_dots)
 
         if self.num_nodes != self.num_dots:
             raise ValueError(f'Number of nodes provided is {self.num_nodes},'
@@ -539,15 +541,15 @@ class T3(Triangular):
 class T6(Triangular):
     "Class representing the T6 shape."
     eta = sy.symbols('eta')
-    ksi = sy.symbols('ksi')
+    xi = sy.symbols('xi')
 
     def __init__(self, node_table):
         Triangular.__init__(self, node_table)
-        self.p = np.array([1, ksi, eta, ksi * eta, ksi * ksi, eta * eta])
-        self.ksi_ref = np.array([0.0, 0.5, 1.0, 0.5, 0.0, 0.0])
-        self.eta_ref = np.array([0.0, 0.0, 0.0, 0.5, 1.0, 0.5])
-        self.num_dots = len(self.ksi_ref)
-        self.shape = np.zeros((self.num_dots, self.num_dots))
+        self.p_ref = sy.Matrix([1, xi, eta, xi * eta, xi * xi, eta * eta])
+        self.xi_ref = sy.Matrix([0.0, 0.5, 1.0, 0.5, 0.0, 0.0])
+        self.eta_ref = sy.Matrix([0.0, 0.0, 0.0, 0.5, 1.0, 0.5])
+        self.num_dots = len(self.xi_ref)
+        self.shape = sy.zeros(self.num_dots)
 
         if self.num_nodes != self.num_dots:
             raise ValueError(f'Number of nodes provided is {self.num_nodes},'
@@ -558,7 +560,7 @@ class Quad(Element2D):
     'Common class for all Quad 2D elements'
     def __init__(self, node_table):
         Element2D.__init__(self, "Q", node_table)
-        # If using Triangular Directly, define self.p, self.ksi_ref,
+        # If using Triangular Directly, define self.p, self.xi_ref,
         # self.eta_ref, self.num_dots in your script.
 
 
@@ -750,7 +752,7 @@ class Mesh1D(Mesh):
         # Get the L2 norm error for the given expected function vs FEM results
         integral = 0
         for i in self.elements.keys():
-            ksi = sy.symbols('ksi')
+            xi = sy.symbols('xi')
             expr_exp = sy.sympify(expected)
             expr_approx = self.elements[i].trial
 
@@ -763,15 +765,15 @@ class Mesh1D(Mesh):
             npg = ceil((order + 1) / 2)
 
             new_x = (0.5 * (domain[0] + domain[1])
-                     + 0.5 * ksi * (domain[1] - domain[0]))
+                     + 0.5 * xi * (domain[1] - domain[0]))
             expr = expr_error.subs(x, new_x)
 
-            [new_ksi, w] = p_roots(npg)
+            [new_xi, w] = p_roots(npg)
 
-            for j in range(len(new_ksi)):
+            for j in range(len(new_xi)):
                 integral = (integral
-                            + (w[j] * length * 0.5 * expr.subs(ksi,
-                                                               new_ksi[j]))
+                            + (w[j] * length * 0.5 * expr.subs(xi,
+                                                               new_xi[j]))
                             )
 
         print(integral)
@@ -781,7 +783,7 @@ class Mesh1D(Mesh):
         # Get the L2 norm error for the given expected function vs FEM results
         integral = 0
         for i in self.elements.keys():
-            ksi = sy.symbols('ksi')
+            xi = sy.symbols('xi')
             expr_exp = sy.sympify(expected)
             expr_approx = self.elements[i].trial_prime
 
@@ -794,15 +796,15 @@ class Mesh1D(Mesh):
             npg = ceil((order + 1) / 2)
 
             new_x = (0.5 * (domain[0] + domain[1])
-                     + 0.5 * ksi * (domain[1] - domain[0]))
+                     + 0.5 * xi * (domain[1] - domain[0]))
             expr = expr_error.subs(x, new_x)
 
-            [new_ksi, w] = p_roots(npg)
+            [new_xi, w] = p_roots(npg)
 
-            for j in range(len(new_ksi)):
+            for j in range(len(new_xi)):
                 integral = (integral
-                            + (w[j] * length * 0.5 * expr.subs(ksi,
-                                                               new_ksi[j]))
+                            + (w[j] * length * 0.5 * expr.subs(xi,
+                                                               new_xi[j]))
                             )
 
         print(integral)
