@@ -377,7 +377,7 @@ class Element2D(Element):
         self.y_coord = y_coord
 
     def provide_de(self, de):
-        self.de = de.T
+        self.de = de
 
     def p_function_ref(self, eval_coordinates):
         # 'eval_coordinates' is a table with [xi_coord, eta_coord]
@@ -491,7 +491,7 @@ class Element2D(Element):
 
     def get_Be(self):
         # Get the B_e matrix
-        Be = self.Je.inv.dot(self.GN_ref)
+        Be = self.Je.inv() * self.GN_ref
 
         self.Be = Be
 
@@ -503,7 +503,7 @@ class Element2D(Element):
                 'provide_de().'
                 )
         else:
-            trial = self.Ne_ref.dot(self.de)
+            trial = self.Ne_ref * self.de
             trial2 = trial
             for i in sy.preorder_traversal(trial):
                 if isinstance(i, sy.Float) and abs(i) < 1e-15:
