@@ -175,7 +175,7 @@ class Triangular(Element2D):
         # self.eta_ref, self.num_dots in your script.
 
 
-class T3(Triangular):
+class CTRIA3(Triangular):
     "Class representing the T3 shape."
     xi = sy.symbols('xi')
     eta = sy.symbols('eta')
@@ -193,7 +193,7 @@ class T3(Triangular):
                              '{self.num_dots} expected.')
 
 
-class T6(Triangular):
+class CTRIA6(Triangular):
     "Class representing the T6 shape."
     eta = sy.symbols('eta')
     xi = sy.symbols('xi')
@@ -217,3 +217,56 @@ class Quad(Element2D):
         Element2D.__init__(self, "Q", node_table)
         # If using Triangular Directly, define self.p, self.xi_ref,
         # self.eta_ref, self.num_dots in your script.
+
+
+class CQUAD4(Quad):
+    "Class representing the CQUAD4 shape."
+    eta = sy.symbols('eta')
+    xi = sy.symbols('xi')
+
+    def __init__(self, node_table):
+        Triangular.__init__(self, node_table)
+        self.p_ref = sy.Matrix([1, xi, eta, xi * eta])
+        self.xi_ref = sy.Matrix([-1.0, 1.0, 1.0, -1.0])
+        self.eta_ref = sy.Matrix([-1.0, -1.0, 1.0, 1.0])
+        self.num_dots = len(self.xi_ref)
+        self.shape = sy.zeros(self.num_dots)
+
+        if self.num_nodes != self.num_dots:
+            raise ValueError(f'Number of nodes provided is {self.num_nodes},'
+                             '{self.num_dots} expected.')
+
+class CQUAD8(Quad):
+    "Class representing the CQUAD8 shape."
+    eta = sy.symbols('eta')
+    xi = sy.symbols('xi')
+
+    def __init__(self, node_table):
+        Triangular.__init__(self, node_table)
+        self.p_ref = sy.Matrix([1, xi, eta, xi * eta, xi ** 2, eta ** 2, xi ** 3, eta ** 3])
+        self.xi_ref = sy.Matrix([-1.0, 0.0, 1.0, 1.0, 1.0, 0.0, -1.0, -1.0])
+        self.eta_ref = sy.Matrix([-1.0, -1.0, -1.0, 0.0, 1.0, 1.0, 1.0, 0.0])
+        self.num_dots = len(self.xi_ref)
+        self.shape = sy.zeros(self.num_dots)
+
+        if self.num_nodes != self.num_dots:
+            raise ValueError(f'Number of nodes provided is {self.num_nodes},'
+                             '{self.num_dots} expected.')
+
+
+class CQUAD9(Quad):
+    "Class representing the CQUAD9 shape."
+    eta = sy.symbols('eta')
+    xi = sy.symbols('xi')
+
+    def __init__(self, node_table):
+        Triangular.__init__(self, node_table)
+        self.p_ref = sy.Matrix([1, xi, eta, xi * eta, xi ** 2, eta ** 2, xi ** 3, eta ** 3, (xi ** 2) * (eta ** 2)])
+        self.xi_ref = sy.Matrix([-1.0, 0.0, 1.0, 1.0, 1.0, 0.0, -1.0, -1.0])
+        self.eta_ref = sy.Matrix([-1.0, -1.0, -1.0, 0.0, 1.0, 1.0, 1.0, 0.0])
+        self.num_dots = len(self.xi_ref)
+        self.shape = sy.zeros(self.num_dots)
+
+        if self.num_nodes != self.num_dots:
+            raise ValueError(f'Number of nodes provided is {self.num_nodes},'
+                             '{self.num_dots} expected.')
