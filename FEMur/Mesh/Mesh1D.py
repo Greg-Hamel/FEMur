@@ -1,20 +1,3 @@
-import numpy as np
-from scipy import pi
-from scipy.special.orthogonal import p_roots
-import sympy as sy
-from sympy.abc import x, y
-from sympy import pprint
-import matplotlib.pyplot as plt
-from math import *
-
-
-# Mesh
-class Mesh(object):
-    'Common class for all Mesh of the Finite Element Method.'
-    def __init__(self):
-        pass
-
-
 class Mesh1D(Mesh):
     '1 Dimensional Mesh.'
     def __init__(self, domain, Number_of_elements, Nodes_per_element,
@@ -302,15 +285,3 @@ class Mesh1D(Mesh):
 
         plt.plot(plot_x, equation(plot_x), 'b-', plot_x, fem, 'r--')
         plt.show()
-
-
-class Mesh2D(Mesh):
-    '2 Dimensional Mesh.'
-    def __init__(self):
-        pass
-
-
-class Mesh3D(Mesh):
-    '3 Dimensional Mesh.'
-    def __init__(self):
-        pass
