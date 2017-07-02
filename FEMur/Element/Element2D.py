@@ -7,7 +7,8 @@ class Element2D(Element):
         self.number = Element2D.total_elements
         Element2D.total_elements += 1
 
-        self.e_type = element_type  # 'T' for triangle, 'Q' for quad
+        self.e_type = element_type  # 'L' for line, 'T' for triangle, 'Q' for
+                                    # quad
         self.num_nodes = len(node_table)  # The number of nodes per element
 
         self.p_ref = None
@@ -166,6 +167,19 @@ class Element2D(Element):
 
             self.trial = trial2
 
+class Line(Element2D):
+    'Class for all 2D line elements.'
+    def __init__(self, node_table):
+        Element2D.__init__(self, "L", node_table)
+        self.p_ref = sy.Matrix([1.0, xi])
+        self.xi_ref = sy.Matrix([-1.0, 1.0])
+        self.eta_ref = sy.Matrix([0.0, 0.0])
+        self.num_dots = len(self.xi_ref)
+        self.shape = sy.zeros(self.num_dots)
+
+        if self.num_nodes != self.num_dots:
+            raise ValueError(f'Number of nodes provided is {self.num_nodes},'
+                             '{self.num_dots} expected.')
 
 class Triangular(Element2D):
     'Common class for all Triangular 2D elements'
