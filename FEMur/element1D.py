@@ -1,3 +1,9 @@
+from FEMur import Element
+import sympy as sy
+import numpy as np
+import scipy as sc
+import matplotlib.pyplot as plt
+
 class Element1D(Element):
     'Defines the Linear Elements with its nodes and shape functions'
     total_elements = 0

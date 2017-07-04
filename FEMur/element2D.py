@@ -1,3 +1,9 @@
+from FEMur import Element
+import sympy as sy
+import numpy as np
+import scipy as sc
+import matplotlib.pyplot as plt
+
 class Element2D(Element):
     'Defines the Planar Elements with its nodes and shape functions'
     total_elements = 0

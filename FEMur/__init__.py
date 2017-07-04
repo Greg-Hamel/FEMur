@@ -12,7 +12,15 @@ easy-to-use solver for FEM problems that is accessible for most people.
 
 This is in no-way a complete project as of yet. There is a lot more to come.
 """
-
-from FEMur.Node import *
-from FEMur.Element import *
-from FEMur.Mesh import *
+from FEMur.node import *
+from FEMur.node1D import *
+from FEMur.node2D import *
+from FEMur.node3D import *
+from FEMur.element import *
+from FEMur.element1D import *
+from FEMur.element2D import *
+from FEMur.element3D import *
+from FEMur.mesh import *
+from FEMur.mesh1D import *
+from FEMur.mesh2D import *
+from FEMur.mesh3D import *

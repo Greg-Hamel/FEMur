@@ -1,3 +1,10 @@
+from FEMur import Mesh
+import sympy as sy
+import numpy as np
+import scipy as sc
+import matplotlib.pyplot as plt
+
+
 class Mesh1D(Mesh):
     '1 Dimensional Mesh.'
     def __init__(self, domain, Number_of_elements, Nodes_per_element,

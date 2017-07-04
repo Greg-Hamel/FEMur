@@ -1,3 +1,5 @@
+from FEMur import Node
+
 class Node2D(Node):
     'Class for all 2-D Nodes'
     total_nodes = 0
@@ -19,6 +21,9 @@ class Node2D(Node):
         # Add a Node 'x' and 'y' values with another Node 'x' and 'y'
         # values
         return Node2D(self.x + other.x, self.y + other.y, self.dof, self.index)
+
+    def __str__(self):
+        return f"Node {self.number} located at ({self.x}, {self.y})."
 
     def nodeDistance(self, other):
         # Return the distance between two 2D nodes.

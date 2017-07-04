@@ -1,3 +1,5 @@
+from FEMur import Node
+
 class Node1D(Node):
     'Class for all 1-D Nodes'
     total_nodes = 0
