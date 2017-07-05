@@ -173,13 +173,27 @@ class Element2D(Element):
 
             self.trial = trial2
 
-class Line(Element2D):
-    'Class for all 2D line elements.'
+class Line2(Element2D):
+    'Class for 2D linear line elements with 2 nodes.'
     def __init__(self, node_table):
         Element2D.__init__(self, "L", node_table)
         self.p_ref = sy.Matrix([1.0, xi])
         self.xi_ref = sy.Matrix([-1.0, 1.0])
         self.eta_ref = sy.Matrix([0.0, 0.0])
+        self.num_dots = len(self.xi_ref)
+        self.shape = sy.zeros(self.num_dots)
+
+        if self.num_nodes != self.num_dots:
+            raise ValueError(f'Number of nodes provided is {self.num_nodes},'
+                             '{self.num_dots} expected.')
+
+class Line3(Element2D):
+    'Class for 2D 2nd order line elements with 3 nodes.'
+    def __init__(self, node_table):
+        Element2D.__init__(self, "L", node_table)
+        self.p_ref = sy.Matrix([1.0, xi, xi ** 2])
+        self.xi_ref = sy.Matrix([-1.0, 0.0,1.0])
+        self.eta_ref = sy.Matrix([0.0, 0.0, 0.0])
         self.num_dots = len(self.xi_ref)
         self.shape = sy.zeros(self.num_dots)
 
