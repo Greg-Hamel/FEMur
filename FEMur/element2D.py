@@ -15,6 +15,10 @@ class Element2D(Element):
                                     # quad
         self.num_nodes = len(node_table)  # The number of nodes per element
 
+        self.nodes = {}
+        for i in range(self.num_nodes):
+            self.nodes[str(i)] = node_table[i]
+
         self.p_ref = None
         self.Me_ref = None
         self.Ne_ref = None
