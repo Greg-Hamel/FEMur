@@ -123,8 +123,18 @@ class Mesh2D(Mesh):
     def show_nodes(self):
         if self.nodes is None:
             raise ValueError('Nodes have not been assigned yet. Please create'
-                             ' nodes using Node2D.get_ref_nodes()')
+                             ' nodes using Node2D.get_nodes_files()')
         elif type(self.nodes) == dict:
             print(len(self.nodes), "nodes in total.")
             for i in self.nodes.keys():
                 print(self.nodes[i])
+
+    def show_elements(self):
+        if self.elements is None:
+            raise ValueError('Elements have not been assigned yet. Please'
+                             ' create elements using'
+                             ' Node2D.get_elements_files()')
+        elif type(self.elements) == dict:
+            print(len(self.elements), "nodes in total.")
+            for i in self.elements.keys():
+                print(self.elements[i])
