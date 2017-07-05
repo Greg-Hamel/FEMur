@@ -32,8 +32,6 @@ class Element2D(Element):
         self.p_ref = None
         self.xi_ref = None
         self.eta_ref = None
-        self.x_coord = None
-        self.y_coord = None
         self.Me_ref = None
         self.Ne_ref = None
         self.GN_ref = None
