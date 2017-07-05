@@ -19,7 +19,21 @@ class Element2D(Element):
         for i in range(self.num_nodes):
             self.nodes[str(i)] = node_table[i]
 
+        self.x_coord = []  # Creates uni-column matrix for x_coords of nodes
+        for i in self.nodes.keys()):
+            self.x_coord.append(self.nodes[i].x)
+        self.x_coord = sy.Matrix(self.x_coord)
+
+        self.y_coord = []  # Creates uni-column matrix for y_coords of nodes
+        for i in self.nodes.keys()):
+            self.y_coord.append(self.nodes[i].y)
+        self.y_coord = sy.Matrix(self.y_coord)
+
         self.p_ref = None
+        self.xi_ref = None
+        self.eta_ref = None
+        self.x_coord = None
+        self.y_coord = None
         self.Me_ref = None
         self.Ne_ref = None
         self.GN_ref = None
@@ -46,12 +60,6 @@ class Element2D(Element):
 
     def provide_eta_ref(self, eta_ref):
         self.eta_ref = eta_ref
-
-    def provide_xcoord(self, x_coord):
-        self.x_coord = x_coord
-
-    def provide_ycoord(self, y_coord):
-        self.y_coord = y_coord
 
     def provide_de(self, de):
         self.de = de
