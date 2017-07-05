@@ -209,7 +209,7 @@ class Triangular(Element2D):
         # self.eta_ref, self.num_dots in your script.
 
 
-class CTRIA3(Triangular):
+class Tria3(Triangular):
     "Class representing the T3 shape."
     xi = sy.symbols('xi')
     eta = sy.symbols('eta')
@@ -227,7 +227,7 @@ class CTRIA3(Triangular):
                              '{self.num_dots} expected.')
 
 
-class CTRIA6(Triangular):
+class Tria6(Triangular):
     "Class representing the T6 shape."
     eta = sy.symbols('eta')
     xi = sy.symbols('xi')
@@ -253,7 +253,7 @@ class Quad(Element2D):
         # self.eta_ref, self.num_dots in your script.
 
 
-class CQUAD4(Quad):
+class Quad4(Quad):
     "Class representing the CQUAD4 shape."
     eta = sy.symbols('eta')
     xi = sy.symbols('xi')
@@ -270,7 +270,7 @@ class CQUAD4(Quad):
             raise ValueError(f'Number of nodes provided is {self.num_nodes},'
                              '{self.num_dots} expected.')
 
-class CQUAD8(Quad):
+class Quad8(Quad):
     "Class representing the CQUAD8 shape."
     eta = sy.symbols('eta')
     xi = sy.symbols('xi')
@@ -288,7 +288,7 @@ class CQUAD8(Quad):
                              '{self.num_dots} expected.')
 
 
-class CQUAD9(Quad):
+class Quad9(Quad):
     "Class representing the CQUAD9 shape."
     eta = sy.symbols('eta')
     xi = sy.symbols('xi')
