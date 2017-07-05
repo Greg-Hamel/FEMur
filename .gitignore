@@ -4,3 +4,11 @@ FEMur\.egg-info/
 build/
 
 dist/
+
+.DS_Store
+
+FEMur/__pycache__
+
+FEMur/.DS_Store
+
+FEMur/__init__.pyc
