@@ -6,12 +6,10 @@ import matplotlib.pyplot as plt
 
 class Element2D(Element):
     'Defines the Planar Elements with its nodes and shape functions'
-    total_elements = 0
 
-    def __init__(self, element_type, node_table):
+    def __init__(self, element_type, node_table, index):
         Element.__init__(self)
-        self.number = Element2D.total_elements
-        Element2D.total_elements += 1
+        self.number = index
 
         self.e_type = element_type  # 'L' for line, 'T' for triangle, 'Q' for
                                     # quad
@@ -22,6 +20,19 @@ class Element2D(Element):
         self.Ne_ref = None
         self.GN_ref = None
         self.de = None
+
+    def __str__(self):
+        # Define the print function for Element1D
+        nodes_str = f''
+        for i in range(self.num_nodes):
+            if nodes_str == '':
+                key = str(i)
+                nodes_str = f'{self.nodes[key].number}'
+            else:
+                key = str(i)
+                nodes_str = nodes_str + f', {self.nodes[key].number}'
+        output_str = f'Element({self.number}) is a {self.__name__} composed of Nodes({nodes_str})'
+        return output_str
 
     def provide_p_ref(self, p_matrix):
         self.p_ref = p_matrix
@@ -176,7 +187,7 @@ class Element2D(Element):
 class Point1(Element2D):
     'Class for all single-node elements.'
     def __init__(self, node, index):
-        Element2D.__init__(self, "P", node_table)
+        Element2D.__init__(self, "P", node_table, index)
         self.p_ref = sy.Matrix([1.0])
         self.xi_ref = sy.Matrix([0.0])
         self.eta_ref = sy.Matrix([0.0])
@@ -187,10 +198,13 @@ class Point1(Element2D):
             raise ValueError(f'Number of nodes provided is {self.num_nodes},'
                              '{self.num_dots} expected.')
 
+    def __name__(self):
+        return "1-node Point"
+
 class Line2(Element2D):
     'Class for 2D linear line elements with 2 nodes.'
     def __init__(self, node_table, index):
-        Element2D.__init__(self, "L", node_table)
+        Element2D.__init__(self, "L", node_table, index)
         self.p_ref = sy.Matrix([1.0, xi])
         self.xi_ref = sy.Matrix([-1.0, 1.0])
         self.eta_ref = sy.Matrix([0.0, 0.0])
@@ -201,10 +215,13 @@ class Line2(Element2D):
             raise ValueError(f'Number of nodes provided is {self.num_nodes},'
                              '{self.num_dots} expected.')
 
+        def __name__(self):
+            return "2-node line"
+
 class Line3(Element2D):
     'Class for 2D 2nd order line elements with 3 nodes.'
     def __init__(self, node_table, index):
-        Element2D.__init__(self, "L", node_table)
+        Element2D.__init__(self, "L", node_table, index)
         self.p_ref = sy.Matrix([1.0, xi, xi ** 2])
         self.xi_ref = sy.Matrix([-1.0, 0.0,1.0])
         self.eta_ref = sy.Matrix([0.0, 0.0, 0.0])
@@ -215,10 +232,13 @@ class Line3(Element2D):
             raise ValueError(f'Number of nodes provided is {self.num_nodes},'
                              '{self.num_dots} expected.')
 
+    def __name__(self):
+        return "3-node 2nd-order line"
+
 class Triangular(Element2D):
     'Common class for all Triangular 2D elements'
-    def __init__(self, node_table, using_directly=None):
-        Element2D.__init__(self, "T", node_table)
+    def __init__(self, node_table, index, using_directly=None):
+        Element2D.__init__(self, "T", node_table, index)
         # If using Triangular Directly, define self.p, self.xi_ref,
         # self.eta_ref, self.num_dots in your script.
 
@@ -229,7 +249,7 @@ class Tria3(Triangular):
     eta = sy.symbols('eta')
 
     def __init__(self, node_table, index):
-        Triangular.__init__(self, node_table)
+        Triangular.__init__(self, node_table, index)
         self.p_ref = sy.Matrix([1, xi, eta])
         self.xi_ref = sy.Matrix([0.0, 1.0, 0.0])
         self.eta_ref = sy.Matrix([0.0, 0.0, 1.0])
@@ -240,6 +260,9 @@ class Tria3(Triangular):
             raise ValueError(f'Number of nodes provided is {self.num_nodes},'
                              '{self.num_dots} expected.')
 
+    def __name__(self):
+        return "3-node triangle"
+
 
 class Tria6(Triangular):
     "Class representing the T6 shape."
@@ -247,7 +270,7 @@ class Tria6(Triangular):
     xi = sy.symbols('xi')
 
     def __init__(self, node_table, index):
-        Triangular.__init__(self, node_table)
+        Triangular.__init__(self, node_table, index)
         self.p_ref = sy.Matrix([1, xi, eta, xi * eta, xi * xi, eta * eta])
         self.xi_ref = sy.Matrix([0.0, 0.5, 1.0, 0.5, 0.0, 0.0])
         self.eta_ref = sy.Matrix([0.0, 0.0, 0.0, 0.5, 1.0, 0.5])
@@ -258,11 +281,14 @@ class Tria6(Triangular):
             raise ValueError(f'Number of nodes provided is {self.num_nodes},'
                              '{self.num_dots} expected.')
 
+    def __name__(self):
+        return "6-node 2nd-order triangle"
+
 
 class Quad(Element2D):
     'Common class for all Quad 2D elements'
-    def __init__(self, node_table):
-        Element2D.__init__(self, "Q", node_table)
+    def __init__(self, node_table, index):
+        Element2D.__init__(self, "Q", node_table, index)
         # If using Triangular Directly, define self.p, self.xi_ref,
         # self.eta_ref, self.num_dots in your script.
 
@@ -273,7 +299,7 @@ class Quad4(Quad):
     xi = sy.symbols('xi')
 
     def __init__(self, node_table, index):
-        Triangular.__init__(self, node_table)
+        Triangular.__init__(self, node_table, index)
         self.p_ref = sy.Matrix([1, xi, eta, xi * eta])
         self.xi_ref = sy.Matrix([-1.0, 1.0, 1.0, -1.0])
         self.eta_ref = sy.Matrix([-1.0, -1.0, 1.0, 1.0])
@@ -284,13 +310,17 @@ class Quad4(Quad):
             raise ValueError(f'Number of nodes provided is {self.num_nodes},'
                              '{self.num_dots} expected.')
 
+        def __name__(self):
+            return "4-node quad"
+
+
 class Quad8(Quad):
     "Class representing the CQUAD8 shape."
     eta = sy.symbols('eta')
     xi = sy.symbols('xi')
 
     def __init__(self, node_table, index):
-        Triangular.__init__(self, node_table)
+        Triangular.__init__(self, node_table, index)
         self.p_ref = sy.Matrix([1, xi, eta, xi * eta, xi ** 2, eta ** 2, xi ** 3, eta ** 3])
         self.xi_ref = sy.Matrix([-1.0, 0.0, 1.0, 1.0, 1.0, 0.0, -1.0, -1.0])
         self.eta_ref = sy.Matrix([-1.0, -1.0, -1.0, 0.0, 1.0, 1.0, 1.0, 0.0])
@@ -301,6 +331,9 @@ class Quad8(Quad):
             raise ValueError(f'Number of nodes provided is {self.num_nodes},'
                              '{self.num_dots} expected.')
 
+    def __name__(self):
+        return "8-node 2nd-order quad"
+
 
 class Quad9(Quad):
     "Class representing the CQUAD9 shape."
@@ -308,7 +341,7 @@ class Quad9(Quad):
     xi = sy.symbols('xi')
 
     def __init__(self, node_table, index):
-        Triangular.__init__(self, node_table)
+        Triangular.__init__(self, node_table, index)
         self.p_ref = sy.Matrix([1, xi, eta, xi * eta, xi ** 2, eta ** 2, xi ** 3, eta ** 3, (xi ** 2) * (eta ** 2)])
         self.xi_ref = sy.Matrix([-1.0, 0.0, 1.0, 1.0, 1.0, 0.0, -1.0, -1.0])
         self.eta_ref = sy.Matrix([-1.0, -1.0, -1.0, 0.0, 1.0, 1.0, 1.0, 0.0])
@@ -318,3 +351,6 @@ class Quad9(Quad):
         if self.num_nodes != self.num_dots:
             raise ValueError(f'Number of nodes provided is {self.num_nodes},'
                              '{self.num_dots} expected.')
+
+    def __name__(self):
+        return "9-node 2nd-order quad"
