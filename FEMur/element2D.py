@@ -175,7 +175,7 @@ class Element2D(Element):
 
 class Line2(Element2D):
     'Class for 2D linear line elements with 2 nodes.'
-    def __init__(self, node_table):
+    def __init__(self, node_table, index):
         Element2D.__init__(self, "L", node_table)
         self.p_ref = sy.Matrix([1.0, xi])
         self.xi_ref = sy.Matrix([-1.0, 1.0])
@@ -189,7 +189,7 @@ class Line2(Element2D):
 
 class Line3(Element2D):
     'Class for 2D 2nd order line elements with 3 nodes.'
-    def __init__(self, node_table):
+    def __init__(self, node_table, index):
         Element2D.__init__(self, "L", node_table)
         self.p_ref = sy.Matrix([1.0, xi, xi ** 2])
         self.xi_ref = sy.Matrix([-1.0, 0.0,1.0])
@@ -214,7 +214,7 @@ class CTRIA3(Triangular):
     xi = sy.symbols('xi')
     eta = sy.symbols('eta')
 
-    def __init__(self, node_table):
+    def __init__(self, node_table, index):
         Triangular.__init__(self, node_table)
         self.p_ref = sy.Matrix([1, xi, eta])
         self.xi_ref = sy.Matrix([0.0, 1.0, 0.0])
@@ -232,7 +232,7 @@ class CTRIA6(Triangular):
     eta = sy.symbols('eta')
     xi = sy.symbols('xi')
 
-    def __init__(self, node_table):
+    def __init__(self, node_table, index):
         Triangular.__init__(self, node_table)
         self.p_ref = sy.Matrix([1, xi, eta, xi * eta, xi * xi, eta * eta])
         self.xi_ref = sy.Matrix([0.0, 0.5, 1.0, 0.5, 0.0, 0.0])
@@ -258,7 +258,7 @@ class CQUAD4(Quad):
     eta = sy.symbols('eta')
     xi = sy.symbols('xi')
 
-    def __init__(self, node_table):
+    def __init__(self, node_table, index):
         Triangular.__init__(self, node_table)
         self.p_ref = sy.Matrix([1, xi, eta, xi * eta])
         self.xi_ref = sy.Matrix([-1.0, 1.0, 1.0, -1.0])
@@ -275,7 +275,7 @@ class CQUAD8(Quad):
     eta = sy.symbols('eta')
     xi = sy.symbols('xi')
 
-    def __init__(self, node_table):
+    def __init__(self, node_table, index):
         Triangular.__init__(self, node_table)
         self.p_ref = sy.Matrix([1, xi, eta, xi * eta, xi ** 2, eta ** 2, xi ** 3, eta ** 3])
         self.xi_ref = sy.Matrix([-1.0, 0.0, 1.0, 1.0, 1.0, 0.0, -1.0, -1.0])
@@ -293,7 +293,7 @@ class CQUAD9(Quad):
     eta = sy.symbols('eta')
     xi = sy.symbols('xi')
 
-    def __init__(self, node_table):
+    def __init__(self, node_table, index):
         Triangular.__init__(self, node_table)
         self.p_ref = sy.Matrix([1, xi, eta, xi * eta, xi ** 2, eta ** 2, xi ** 3, eta ** 3, (xi ** 2) * (eta ** 2)])
         self.xi_ref = sy.Matrix([-1.0, 0.0, 1.0, 1.0, 1.0, 0.0, -1.0, -1.0])
