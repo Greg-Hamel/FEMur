@@ -103,9 +103,6 @@ class Element2D(Element):
         if self.Me_ref is None:
             self.get_inv_Me_ref()
 
-        print(self.p_ref.T)
-        print(self.inv_Me_ref)
-
         self.Ne_ref = self.p_ref.T * self.inv_Me_ref
 
     def validate_Ne_ref(self):
@@ -222,6 +219,7 @@ class Point1(Element2D):
     'Class for all single-node elements.'
     def __init__(self, node, index):
         xi = sy.symbols('xi')
+        eta = sy.symbols('eta')
         Element2D.__init__(self, "P", node_table, index)
         self.p_ref = sy.Matrix([1.0])
         self.xi_ref = sy.Matrix([0.0])
@@ -240,6 +238,7 @@ class Line2(Element2D):
     'Class for 2D linear line elements with 2 nodes.'
     def __init__(self, node_table, index):
         xi = sy.symbols('xi')
+        eta = sy.symbols('eta')
         Element2D.__init__(self, "L", node_table, index)
         self.p_ref = sy.Matrix([1.0, xi])
         self.xi_ref = sy.Matrix([-1.0, 1.0])
@@ -258,6 +257,7 @@ class Line3(Element2D):
     'Class for 2D 2nd order line elements with 3 nodes.'
     def __init__(self, node_table, index):
         xi = sy.symbols('xi')
+        eta = sy.symbols('eta')
         Element2D.__init__(self, "L", node_table, index)
         self.p_ref = sy.Matrix([1.0, xi, xi ** 2])
         self.xi_ref = sy.Matrix([-1.0, 0.0, 1.0])
