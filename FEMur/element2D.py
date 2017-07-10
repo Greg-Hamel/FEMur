@@ -8,24 +8,23 @@ class Element2D(Element):
     'Defines the Planar Elements with its nodes and shape functions'
 
     def __init__(self, element_type, node_table, index):
-        Element.__init__(self)
+        Element.__init__(self, node_table, index)
         self.number = index
 
         self.e_type = element_type  # 'L' for line, 'T' for triangle, 'Q' for
                                     # quad
-        self.num_nodes = len(node_table)  # The number of nodes per element
 
         self.nodes = {}
         for i in range(self.num_nodes):
             self.nodes[str(i)] = node_table[i]
 
         self.x_coord = []  # Creates uni-column matrix for x_coords of nodes
-        for i in self.nodes.keys()):
+        for i in self.nodes.keys():
             self.x_coord.append(self.nodes[i].x)
         self.x_coord = sy.Matrix(self.x_coord)
 
         self.y_coord = []  # Creates uni-column matrix for y_coords of nodes
-        for i in self.nodes.keys()):
+        for i in self.nodes.keys():
             self.y_coord.append(self.nodes[i].y)
         self.y_coord = sy.Matrix(self.y_coord)
 
@@ -35,6 +34,7 @@ class Element2D(Element):
         self.Me_ref = None
         self.Ne_ref = None
         self.GN_ref = None
+        self.xy_coord = None
         self.de = None
 
     def __str__(self):
@@ -103,7 +103,10 @@ class Element2D(Element):
         if self.Me_ref is None:
             self.get_inv_Me_ref()
 
-        self.Ne_ref = sy.Matrix(self.p_ref * self.inv_Me_ref)
+        print(self.p_ref.T)
+        print(self.inv_Me_ref)
+
+        self.Ne_ref = self.p_ref.T * self.inv_Me_ref
 
     def validate_Ne_ref(self):
         # Validate the N_e matrix by providing nodes 'x' values. In order for
@@ -155,7 +158,8 @@ class Element2D(Element):
 
     def get_Je(self):
         # Get the jacobien
-        self.get_xy_coord_matrix()
+        if self.xy_coord is None:
+            self.get_xy_coord_matrix()
 
         if self.GN_ref is None:
             self.get_GN_ref()
@@ -165,6 +169,7 @@ class Element2D(Element):
         self.Je = jacobien
 
     def get_detJe(self):
+        # Get the determinant of the Jacobien Matrix
         if self.Je is None:
             self.get_Je()
 
@@ -174,6 +179,9 @@ class Element2D(Element):
 
     def get_Be(self):
         # Get the B_e matrix
+        if self.Je is None:
+            self.get_Je()
+
         Be = self.Je.inv() * self.GN_ref
 
         self.Be = Be
@@ -194,9 +202,26 @@ class Element2D(Element):
 
             self.trial = trial2
 
+    def get_trial_prime(self):
+        # Get the trial function
+        if self.de is None:
+            raise ValueError(
+                'No conditions were given, please provide conditions using'
+                'provide_de().'
+                )
+        else:
+            trial = self.Be * self.de
+            trial2 = trial
+            for i in sy.preorder_traversal(trial):
+                if isinstance(i, sy.Float) and abs(i) < 1e-15:
+                    trial2 = trial2.subs(i, round(i, 1))
+
+            self.trial_prime = trial2
+
 class Point1(Element2D):
     'Class for all single-node elements.'
     def __init__(self, node, index):
+        xi = sy.symbols('xi')
         Element2D.__init__(self, "P", node_table, index)
         self.p_ref = sy.Matrix([1.0])
         self.xi_ref = sy.Matrix([0.0])
@@ -214,6 +239,7 @@ class Point1(Element2D):
 class Line2(Element2D):
     'Class for 2D linear line elements with 2 nodes.'
     def __init__(self, node_table, index):
+        xi = sy.symbols('xi')
         Element2D.__init__(self, "L", node_table, index)
         self.p_ref = sy.Matrix([1.0, xi])
         self.xi_ref = sy.Matrix([-1.0, 1.0])
@@ -231,9 +257,10 @@ class Line2(Element2D):
 class Line3(Element2D):
     'Class for 2D 2nd order line elements with 3 nodes.'
     def __init__(self, node_table, index):
+        xi = sy.symbols('xi')
         Element2D.__init__(self, "L", node_table, index)
         self.p_ref = sy.Matrix([1.0, xi, xi ** 2])
-        self.xi_ref = sy.Matrix([-1.0, 0.0,1.0])
+        self.xi_ref = sy.Matrix([-1.0, 0.0, 1.0])
         self.eta_ref = sy.Matrix([0.0, 0.0, 0.0])
         self.num_dots = len(self.xi_ref)
         self.shape = sy.zeros(self.num_dots)
@@ -255,10 +282,11 @@ class Triangular(Element2D):
 
 class Tria3(Triangular):
     "Class representing the T3 shape."
-    xi = sy.symbols('xi')
-    eta = sy.symbols('eta')
 
     def __init__(self, node_table, index):
+        xi = sy.symbols('xi')
+        eta = sy.symbols('eta')
+
         Triangular.__init__(self, node_table, index)
         self.p_ref = sy.Matrix([1, xi, eta])
         self.xi_ref = sy.Matrix([0.0, 1.0, 0.0])
@@ -276,11 +304,12 @@ class Tria3(Triangular):
 
 class Tria6(Triangular):
     "Class representing the T6 shape."
-    eta = sy.symbols('eta')
-    xi = sy.symbols('xi')
 
     def __init__(self, node_table, index):
+        eta = sy.symbols('eta')
+        xi = sy.symbols('xi')
         Triangular.__init__(self, node_table, index)
+
         self.p_ref = sy.Matrix([1, xi, eta, xi * eta, xi * xi, eta * eta])
         self.xi_ref = sy.Matrix([0.0, 0.5, 1.0, 0.5, 0.0, 0.0])
         self.eta_ref = sy.Matrix([0.0, 0.0, 0.0, 0.5, 1.0, 0.5])
@@ -305,10 +334,10 @@ class Quad(Element2D):
 
 class Quad4(Quad):
     "Class representing the CQUAD4 shape."
-    eta = sy.symbols('eta')
-    xi = sy.symbols('xi')
 
     def __init__(self, node_table, index):
+        eta = sy.symbols('eta')
+        xi = sy.symbols('xi')
         Triangular.__init__(self, node_table, index)
         self.p_ref = sy.Matrix([1, xi, eta, xi * eta])
         self.xi_ref = sy.Matrix([-1.0, 1.0, 1.0, -1.0])
@@ -326,10 +355,10 @@ class Quad4(Quad):
 
 class Quad8(Quad):
     "Class representing the CQUAD8 shape."
-    eta = sy.symbols('eta')
-    xi = sy.symbols('xi')
 
     def __init__(self, node_table, index):
+        eta = sy.symbols('eta')
+        xi = sy.symbols('xi')
         Triangular.__init__(self, node_table, index)
         self.p_ref = sy.Matrix([1, xi, eta, xi * eta, xi ** 2, eta ** 2, xi ** 3, eta ** 3])
         self.xi_ref = sy.Matrix([-1.0, 0.0, 1.0, 1.0, 1.0, 0.0, -1.0, -1.0])
@@ -347,10 +376,10 @@ class Quad8(Quad):
 
 class Quad9(Quad):
     "Class representing the CQUAD9 shape."
-    eta = sy.symbols('eta')
-    xi = sy.symbols('xi')
 
     def __init__(self, node_table, index):
+        eta = sy.symbols('eta')
+        xi = sy.symbols('xi')
         Triangular.__init__(self, node_table, index)
         self.p_ref = sy.Matrix([1, xi, eta, xi * eta, xi ** 2, eta ** 2, xi ** 3, eta ** 3, (xi ** 2) * (eta ** 2)])
         self.xi_ref = sy.Matrix([-1.0, 0.0, 1.0, 1.0, 1.0, 0.0, -1.0, -1.0])
