@@ -3,6 +3,7 @@ import sympy as sy
 import numpy as np
 import scipy as sc
 import matplotlib.pyplot as plt
+from scipy.special import p_roots
 
 
 class Mesh1D(Mesh):
