@@ -96,15 +96,6 @@ class Element2D(Element):
 
         self.inv_Me_ref = self.Me_ref.inv()
 
-    def get_Ne_ref(self):
-        # Get the shape functions for the element in the xi and eta domain
-        if self.p_ref is None:
-            self.get_p_ref()
-        if self.Me_ref is None:
-            self.get_inv_Me_ref()
-
-        self.Ne_ref = self.p_ref.T * self.inv_Me_ref
-
     def validate_Ne_ref(self):
         # Validate the N_e matrix by providing nodes 'x' values. In order for
         # this to be validated as "Good", it has to return the identity matrix.
@@ -217,6 +208,8 @@ class Element2D(Element):
 
 class Point1(Element2D):
     'Class for all single-node elements.'
+    Ne_ref = None
+
     def __init__(self, node, index):
         xi = sy.symbols('xi')
         eta = sy.symbols('eta')
@@ -226,6 +219,7 @@ class Point1(Element2D):
         self.eta_ref = sy.Matrix([0.0])
         self.num_dots = len(self.xi_ref)
         self.shape = sy.zeros(self.num_dots)
+        self.Ne_ref = None
 
         if self.num_nodes != self.num_dots:
             raise ValueError(f'Number of nodes provided is {self.num_nodes},'
@@ -234,8 +228,23 @@ class Point1(Element2D):
     def __name__(self):
         return "1-node Point"
 
+    def get_Ne_ref(self):
+        # Get the shape functions for the element in the xi and eta domain
+        if Point1.Ne_ref == None:
+            if self.p_ref is None:
+                self.get_p_ref()
+            if self.Me_ref is None:
+                self.get_inv_Me_ref()
+
+            Point1.Ne_ref = self.p_ref.T * self.inv_Me_ref
+            self.Ne_ref = Point1.Ne_ref
+        else:
+            self.Ne_ref = Point1.Ne_ref
+
 class Line2(Element2D):
     'Class for 2D linear line elements with 2 nodes.'
+    Ne_ref = None
+
     def __init__(self, node_table, index):
         xi = sy.symbols('xi')
         eta = sy.symbols('eta')
@@ -245,16 +254,32 @@ class Line2(Element2D):
         self.eta_ref = sy.Matrix([0.0, 0.0])
         self.num_dots = len(self.xi_ref)
         self.shape = sy.zeros(self.num_dots)
+        self.Ne_ref = None
 
         if self.num_nodes != self.num_dots:
             raise ValueError(f'Number of nodes provided is {self.num_nodes},'
                              '{self.num_dots} expected.')
 
-        def __name__(self):
-            return "2-node line"
+    def __name__(self):
+        return "2-node line"
+
+    def get_Ne_ref(self):
+        # Get the shape functions for the element in the xi and eta domain
+        if Line2.Ne_ref == None:
+            if self.p_ref is None:
+                self.get_p_ref()
+            if self.Me_ref is None:
+                self.get_inv_Me_ref()
+
+            Line2.Ne_ref = self.p_ref.T * self.inv_Me_ref
+            self.Ne_ref = Line2.Ne_ref
+        else:
+            self.Ne_ref = Line2.Ne_ref
 
 class Line3(Element2D):
     'Class for 2D 2nd order line elements with 3 nodes.'
+    Ne_ref = None
+
     def __init__(self, node_table, index):
         xi = sy.symbols('xi')
         eta = sy.symbols('eta')
@@ -264,6 +289,7 @@ class Line3(Element2D):
         self.eta_ref = sy.Matrix([0.0, 0.0, 0.0])
         self.num_dots = len(self.xi_ref)
         self.shape = sy.zeros(self.num_dots)
+        self.Ne_ref = None
 
         if self.num_nodes != self.num_dots:
             raise ValueError(f'Number of nodes provided is {self.num_nodes},'
@@ -271,6 +297,19 @@ class Line3(Element2D):
 
     def __name__(self):
         return "3-node 2nd-order line"
+
+    def get_Ne_ref(self):
+        # Get the shape functions for the element in the xi and eta domain
+        if Line3.Ne_ref == None:
+            if self.p_ref is None:
+                self.get_p_ref()
+            if self.Me_ref is None:
+                self.get_inv_Me_ref()
+
+            Line3.Ne_ref = self.p_ref.T * self.inv_Me_ref
+            self.Ne_ref = Line3.Ne_ref
+        else:
+            self.Ne_ref = Line3.Ne_ref
 
 class Triangular(Element2D):
     'Common class for all Triangular 2D elements'
@@ -282,6 +321,7 @@ class Triangular(Element2D):
 
 class Tria3(Triangular):
     "Class representing the T3 shape."
+    Ne_ref = None
 
     def __init__(self, node_table, index):
         xi = sy.symbols('xi')
@@ -293,6 +333,7 @@ class Tria3(Triangular):
         self.eta_ref = sy.Matrix([0.0, 0.0, 1.0])
         self.num_dots = len(self.xi_ref)
         self.shape = sy.zeros(self.num_dots)
+        self.Ne_ref = None
 
         if self.num_nodes != self.num_dots:
             raise ValueError(f'Number of nodes provided is {self.num_nodes},'
@@ -301,9 +342,23 @@ class Tria3(Triangular):
     def __name__(self):
         return "3-node triangle"
 
+    def get_Ne_ref(self):
+        # Get the shape functions for the element in the xi and eta domain
+        if Tria3.Ne_ref == None:
+            if self.p_ref is None:
+                self.get_p_ref()
+            if self.Me_ref is None:
+                self.get_inv_Me_ref()
+
+            Tria3.Ne_ref = self.p_ref.T * self.inv_Me_ref
+            self.Ne_ref = Tria3.Ne_ref
+        else:
+            self.Ne_ref = Tria3.Ne_ref
+
 
 class Tria6(Triangular):
     "Class representing the T6 shape."
+    Ne_ref = None
 
     def __init__(self, node_table, index):
         eta = sy.symbols('eta')
@@ -315,6 +370,7 @@ class Tria6(Triangular):
         self.eta_ref = sy.Matrix([0.0, 0.0, 0.0, 0.5, 1.0, 0.5])
         self.num_dots = len(self.xi_ref)
         self.shape = sy.zeros(self.num_dots)
+        self.Ne_ref = None
 
         if self.num_nodes != self.num_dots:
             raise ValueError(f'Number of nodes provided is {self.num_nodes},'
@@ -322,6 +378,19 @@ class Tria6(Triangular):
 
     def __name__(self):
         return "6-node 2nd-order triangle"
+
+    def get_Ne_ref(self):
+        # Get the shape functions for the element in the xi and eta domain
+        if Tria6.Ne_ref == None:
+            if self.p_ref is None:
+                self.get_p_ref()
+            if self.Me_ref is None:
+                self.get_inv_Me_ref()
+
+            Tria6.Ne_ref = self.p_ref.T * self.inv_Me_ref
+            self.Ne_ref = Tria6.Ne_ref
+        else:
+            self.Ne_ref = Tria6.Ne_ref
 
 
 class Quad(Element2D):
@@ -334,6 +403,7 @@ class Quad(Element2D):
 
 class Quad4(Quad):
     "Class representing the CQUAD4 shape."
+    Ne_ref = None
 
     def __init__(self, node_table, index):
         eta = sy.symbols('eta')
@@ -344,17 +414,32 @@ class Quad4(Quad):
         self.eta_ref = sy.Matrix([-1.0, -1.0, 1.0, 1.0])
         self.num_dots = len(self.xi_ref)
         self.shape = sy.zeros(self.num_dots)
+        self.Ne_ref = None
 
         if self.num_nodes != self.num_dots:
             raise ValueError(f'Number of nodes provided is {self.num_nodes},'
                              '{self.num_dots} expected.')
 
-        def __name__(self):
-            return "4-node quad"
+    def __name__(self):
+        return "4-node quad"
+
+    def get_Ne_ref(self):
+        # Get the shape functions for the element in the xi and eta domain
+        if Quad4.Ne_ref == None:
+            if self.p_ref is None:
+                self.get_p_ref()
+            if self.Me_ref is None:
+                self.get_inv_Me_ref()
+
+            Quad4.Ne_ref = self.p_ref.T * self.inv_Me_ref
+            self.Ne_ref = Quad4.Ne_ref
+        else:
+            self.Ne_ref = Quad4.Ne_ref
 
 
 class Quad8(Quad):
     "Class representing the CQUAD8 shape."
+    Ne_ref = None
 
     def __init__(self, node_table, index):
         eta = sy.symbols('eta')
@@ -365,6 +450,7 @@ class Quad8(Quad):
         self.eta_ref = sy.Matrix([-1.0, -1.0, -1.0, 0.0, 1.0, 1.0, 1.0, 0.0])
         self.num_dots = len(self.xi_ref)
         self.shape = sy.zeros(self.num_dots)
+        self.Ne_ref = None
 
         if self.num_nodes != self.num_dots:
             raise ValueError(f'Number of nodes provided is {self.num_nodes},'
@@ -373,9 +459,23 @@ class Quad8(Quad):
     def __name__(self):
         return "8-node 2nd-order quad"
 
+    def get_Ne_ref(self):
+        # Get the shape functions for the element in the xi and eta domain
+        if Quad8.Ne_ref == None:
+            if self.p_ref is None:
+                self.get_p_ref()
+            if self.Me_ref is None:
+                self.get_inv_Me_ref()
+
+            Quad8.Ne_ref = self.p_ref.T * self.inv_Me_ref
+            self.Ne_ref = Quad8.Ne_ref
+        else:
+            self.Ne_ref = Quad8.Ne_ref
+
 
 class Quad9(Quad):
     "Class representing the CQUAD9 shape."
+    Ne_ref = None
 
     def __init__(self, node_table, index):
         eta = sy.symbols('eta')
@@ -386,6 +486,7 @@ class Quad9(Quad):
         self.eta_ref = sy.Matrix([-1.0, -1.0, -1.0, 0.0, 1.0, 1.0, 1.0, 0.0])
         self.num_dots = len(self.xi_ref)
         self.shape = sy.zeros(self.num_dots)
+        self.Ne_ref = None
 
         if self.num_nodes != self.num_dots:
             raise ValueError(f'Number of nodes provided is {self.num_nodes},'
@@ -393,3 +494,16 @@ class Quad9(Quad):
 
     def __name__(self):
         return "9-node 2nd-order quad"
+
+    def get_Ne_ref(self):
+        # Get the shape functions for the element in the xi and eta domain
+        if Quad9.Ne_ref == None:
+            if self.p_ref is None:
+                self.get_p_ref()
+            if self.Me_ref is None:
+                self.get_inv_Me_ref()
+
+            Quad9.Ne_ref = self.p_ref.T * self.inv_Me_ref
+            self.Ne_ref = Quad9.Ne_ref
+        else:
+            self.Ne_ref = Quad9.Ne_ref
