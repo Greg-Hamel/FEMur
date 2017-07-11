@@ -172,7 +172,7 @@ class Element2D(Element):
     def get_Be(self):
         # Get the B_e matrix
         if self.Je is None:
-            self.get_Je()
+            self.get_Je() # will define GN_ref at the same time.
 
         Be = self.Je.inv() * self.GN_ref
 
@@ -245,14 +245,76 @@ class Point1(Element2D):
         else:
             self.Ne_ref = Point1.Ne_ref
 
-class Line2(Element2D):
+class Line(Element2D):
+    'Common class for all Line 2D elements.'
+    def __init__(self, node_table, index, using_directly=None):
+        Element2D.__init__(self, "L", node_table, index)
+
+    def solve_heat_stiff_cauchy(self, h):
+        '''
+        Get Heat Stiffness Matrix for Cauchy condition in Sympy format.
+        Size: [Num_node x Num_node]
+
+        'h' is the convection factor
+
+        Returns the stiffness matrix for the element assuming convection on the
+        contour of the element.
+        '''
+
+        if self.Ne is None:
+            self.get_Ne_ref()
+
+        if self.Je is None:
+            self.get_Je()
+
+        K_e = h * self.Je * self.integrate_domain(
+                                            self.Ne_ref.T * self.Ne_ref
+                                            )
+
+        self.K_e = K_e
+
+    def solve_heat_load_cauchy(self, h, t_ext):
+        '''
+        Get Heat Load Vector for Cauchy condition in Sympy format.
+        Size: [Num_node x Num_node]
+
+        'h' is the convection factor
+        't_ext' is the external temperature
+
+        Returns the heat load vector for the element assuming convection on the
+        contour of the element.
+        '''
+        if self.Ne is None:
+            self.get_Ne_ref()
+
+        if self.Je is None:
+            self.get_Je()
+
+        F_e = h * self.Je * self.integrate_domain(self.Ne_ref.T)
+
+        self.F_e = F_e
+
+    def integrate_domain(self, to_integrate):
+        '''
+        Returns domain_integration
+
+        Integrates over the domain of the element based on the pre-defined
+        shape of the triangular element (Tria3, Tria6, etc).
+        '''
+
+        M = self.Je * sy.integrate(to_integrate, (xi, -1, 1))
+
+        return M
+
+
+class Line2(Line):
     'Class for 2D linear line elements with 2 nodes.'
     Ne_ref = None
 
     def __init__(self, node_table, index):
         xi = sy.symbols('xi')
         eta = sy.symbols('eta')
-        Element2D.__init__(self, "L", node_table, index)
+        Line.__init__(self, "L", node_table, index)
         self.p_ref = sy.Matrix([1.0, xi])
         self.xi_ref = sy.Matrix([-1.0, 1.0])
         self.eta_ref = sy.Matrix([0.0, 0.0])
@@ -280,14 +342,14 @@ class Line2(Element2D):
         else:
             self.Ne_ref = Line2.Ne_ref
 
-class Line3(Element2D):
+class Line3(Line):
     'Class for 2D 2nd order line elements with 3 nodes.'
     Ne_ref = None
 
     def __init__(self, node_table, index):
         xi = sy.symbols('xi')
         eta = sy.symbols('eta')
-        Element2D.__init__(self, "L", node_table, index)
+        Line.__init__(self, "L", node_table, index)
         self.p_ref = sy.Matrix([1.0, xi, xi ** 2])
         self.xi_ref = sy.Matrix([-1.0, 0.0, 1.0])
         self.eta_ref = sy.Matrix([0.0, 0.0, 0.0])
@@ -303,7 +365,9 @@ class Line3(Element2D):
         return "3-node 2nd-order line"
 
     def get_Ne_ref(self):
-        # Get the shape functions for the element in the xi and eta domain
+        '''
+        Get the shape functions for the element in the xi and eta domain.
+        '''
         if Line3.Ne_ref == None:
             if self.p_ref is None:
                 self.get_p_ref()
@@ -321,6 +385,50 @@ class Shell(Element2D):
     def __init__(self, node_table, index, using_directly=None):
         Element2D.__init__(self, "T", node_table, index)
 
+    def solve_heat_stiff(self, D, h, e):
+        '''
+        Get Heat Stiffness Matrix in Sympy format.
+        Size: [Num_node x Num_node]
+
+        'D' is the [D] Matrix containing the stiffness factors
+        'h' is the convection factor
+        'e' is the plate thickness
+
+        Returns the stiffness matrix for the element assuming diffusion in the
+        plane direction and convection through both sides of the surface
+        created by the element.
+        '''
+        self.D = D
+        self.h = h
+        self.e = e
+
+        if self.Be is None:
+            self.get_Be()
+
+        K_e = (self.Be.T * self.D * * self.Be * self.Je / 2)
+              + ((2 * self.h / self.e) * self.integrate_domain(
+                                            self.Ne_ref.T * self.Ne_ref
+                                            )
+
+        self.K_e = K_e
+
+
+    def solve_heat_load(self, h, e, t_ext):
+        '''
+        Get Heat Load Vector in Sympy format.
+        Size: [Num_node x Num_node]
+
+        'h' is the convection factor
+        'e' is the plate thickness
+        't_ext' is the external temperature
+
+        Returns the head load vector for the element assuming convection
+        through both sides of the surface created by the element.
+        '''
+        F_e = (2 * h * t_ext / e) * self.integrate_domain(self.Ne_ref.T)
+
+        self.F_e = F_e
+
 
 class Triangular(Shell):
     'Common class for all Triangular 2D elements'
@@ -328,6 +436,19 @@ class Triangular(Shell):
         Shell.__init__(self, "T", node_table, index)
         # If using Triangular Directly, define self.p, self.xi_ref,
         # self.eta_ref, self.num_dots in your script.
+
+    def integrate_domain(self, to_integrate):
+        '''
+        Returns domain_integration
+
+        Integrates over the domain of the element based on the pre-defined
+        shape of the triangular element (Tria3, Tria6, etc).
+        '''
+
+        M = self.Je * sy.integrate(sy.integrate(to_integrate, (xi, 0, 1-eta)),
+                                  (eta, 0, 1)
+                                  )
+        return M
 
 
 class Tria3(Triangular):
@@ -410,6 +531,19 @@ class Quad(Shell):
         Shell.__init__(self, "Q", node_table, index)
         # If using Triangular Directly, define self.p, self.xi_ref,
         # self.eta_ref, self.num_dots in your script.
+
+    def integrate_domain(self, to_integrate):
+        '''
+        Returns domain_integration
+
+        Integrates over the domain of the element based on the pre-defined
+        shape of the Quad element (Quad4, Quad8, etc).
+        '''
+
+        M = self.Je * sy.integrate(sy.integrate(to_integrate, xi, -1, 1)),
+                                  (eta, -1, 1)
+                                  )
+        return M
 
 
 class Quad4(Quad):
