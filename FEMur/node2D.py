@@ -25,6 +25,9 @@ class Node2D(Node):
     def __str__(self):
         return f"Node {self.number} located at ({self.x}, {self.y})."
 
+    def __repr__(self):
+        return str(self)
+
     def nodeDistance(self, other):
         # Return the distance between two 2D nodes.
         return (((self.x - other.x) ** 2) + ((self.y - other.y) ** 2)) ** 0.5
