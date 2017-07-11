@@ -68,6 +68,9 @@ class Mesh2D(Mesh):
             else:
                 pass
 
+        self.num_nodes = len(self.nodes)
+        return None
+
 
     def get_elements_files(self):
         '''
@@ -156,6 +159,7 @@ class Mesh2D(Mesh):
             else:
                 pass
 
+        self.num_elem = len(self.elements)
         return None
 
     def mesh(self):
@@ -261,126 +265,5 @@ class Mesh2D(Mesh):
 
             self.calculated = True
 
-    # The following will be implemented later on. It has only been copied from
-    # mesh1D.py
-    #
-    # def print_elements_trial(self):
-    #     # Shows each element's trial function
-    #     for i in self.elements.keys():
-    #         if self.elements[i].trial is None:
-    #             self.solve_elements()
-    #
-    #         key = int(i)
-    #         print(f'Element({key}) has a trial function of: '
-    #               f'{self.elements[i].trial}')
-    #
-    # def print_elements_Ne(self):
-    #     # Shows each element's trial function
-    #     for i in self.elements.keys():
-    #         if self.elements[i].Ne is None:
-    #             self.elements[i].get_Ne()
-    #
-    #         key = int(i)
-    #         print(f'Element({key}) has a trial function of: '
-    #               f'{self.elements[i].Ne}')
-    #
-    # def get_N(self):
-    #     # Get the global shape function matrix (N)
-    #     N = [0] * self.num_nodes
-    #
-    #     if self.Le_container is None:
-    #         self.get_Le_container()
-    #
-    #     self.solve_elements()
-    #     print("Calculating Global Shape functions")
-    #     for i in range(self.num_nodes):
-    #         for j in self.elements.keys():
-    #             N[i] = N[i] + np.dot(self.elements[j].Ne,
-    #                                  self.Le_container[j])[i]
-    #
-    #     self.N = N
-    #
-    # def get_trial(self):
-    #     # Get the global trial function
-    #     # Warning: this does not seem to work properly.
-    #     if self.N is None:
-    #         self.get_N()
-    #
-    #     omega = np.dot(self.N, self.d)
-    #
-    #     self.omega = omega
-    #
-    # def get_global_weights(self):
-    #     # Get the global weight function (omega)
-    #     omega = np.zeros(self.num_elements)
-    #
-    #     if self.Le_container is None:
-    #         get_Le_container()
-    #
-    #     for i in self.elements.keys():
-    #         omega[int(i)] = np.dot(self.elements[i].Be,
-    #                                self.Le_container[i])
-    #
-    #     self.omega = np.dot((np.sum(omega)), self.d)
-    #
-    # def get_trial_L2(self, expected):
-    #     # Get the L2 norm error for the given expected function vs FEM results
-    #     integral = 0
-    #     for i in self.elements.keys():
-    #         xi = sy.symbols('xi')
-    #         expr_exp = sy.sympify(expected)
-    #         expr_approx = self.elements[i].trial
-    #
-    #         expr_error = (expr_exp - expr_approx) ** 2
-    #
-    #         domain = [self.elements[i].start, self.elements[i].end]
-    #         order = sy.degree(expr_error, x)
-    #
-    #         length = domain[-1] - domain[0]
-    #         npg = ceil((order + 1) / 2)
-    #
-    #         new_x = (0.5 * (domain[0] + domain[1])
-    #                  + 0.5 * xi * (domain[1] - domain[0]))
-    #         expr = expr_error.subs(x, new_x)
-    #
-    #         [new_xi, w] = p_roots(npg)
-    #
-    #         for j in range(len(new_xi)):
-    #             integral = (integral
-    #                         + (w[j] * length * 0.5 * expr.subs(xi,
-    #                                                            new_xi[j]))
-    #                         )
-    #
-    #     print(integral)
-    #     self.L2_error = integral
-    #
-    # def get_trial_derivative_L2(self, expected):
-    #     # Get the L2 norm error for the given expected function vs FEM results
-    #     integral = 0
-    #     for i in self.elements.keys():
-    #         xi = sy.symbols('xi')
-    #         expr_exp = sy.sympify(expected)
-    #         expr_approx = self.elements[i].trial_prime
-    #
-    #         expr_error = (expr_exp - expr_approx) ** 2
-    #
-    #         domain = [self.elements[i].start, self.elements[i].end]
-    #         order = sy.degree(expr_error, x)
-    #
-    #         length = domain[-1] - domain[0]
-    #         npg = ceil((order + 1) / 2)
-    #
-    #         new_x = (0.5 * (domain[0] + domain[1])
-    #                  + 0.5 * xi * (domain[1] - domain[0]))
-    #         expr = expr_error.subs(x, new_x)
-    #
-    #         [new_xi, w] = p_roots(npg)
-    #
-    #         for j in range(len(new_xi)):
-    #             integral = (integral
-    #                         + (w[j] * length * 0.5 * expr.subs(xi,
-    #                                                            new_xi[j]))
-    #                         )
-    #
-    #     print(integral)
-    #     self.L2_error = integral
+    def solve_stiff_int(self):
+        self.stiff_int = sy.zeros(self.num_nodes)
