@@ -240,6 +240,20 @@ class Mesh2D(Mesh):
 
         self.de = de
 
+    def set_D_matrix(k_x, k_y=None, k_xy=None):
+        '''
+        Provide [D] with its diffusion factors (K)
+
+        [D] = [k_x  k_xy]
+              [k_xy  k_y]
+        '''
+        if k_y is None:
+            k_y = k_x
+        if k_xy is None:
+            k_xy = k_x
+
+        self.D = sy.Matrix([[k_x, k_xy], [k_xy, k_y]])
+
     def solve_elements(self):
         # Solve all current elements (shape functions, approximation, etc)
 
