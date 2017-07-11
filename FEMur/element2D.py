@@ -36,6 +36,7 @@ class Element2D(Element):
         self.GN_ref = None
         self.xy_coord = None
         self.de = None
+        self.Je = None
 
     def __str__(self):
         # Define the print function for Element1D
@@ -47,8 +48,11 @@ class Element2D(Element):
             else:
                 key = str(i)
                 nodes_str = nodes_str + f', {self.nodes[key].number}'
-        output_str = f'Element({self.number}) is a {self.__name__} composed of Nodes({nodes_str})'
+        output_str = f'Element({self.number}) is composed of Nodes({nodes_str})'
         return output_str
+
+    def __repr__(self):
+        return str(self)
 
     def provide_p_ref(self, p_matrix):
         self.p_ref = p_matrix
@@ -83,8 +87,8 @@ class Element2D(Element):
         Me = sy.zeros(self.num_nodes)
 
         for i in range(self.num_nodes):
-            inp = self.p_function_ref([self.nodes[str(i)].x,
-                                       self.nodes[str(i)].y])
+            inp = self.p_function_ref([self.xi_ref[i],
+                                       self.eta_ref[i]])
             Me[i, :] = inp
 
         self.Me_ref = Me
@@ -106,9 +110,9 @@ class Element2D(Element):
         for i in range(self.num_nodes):
             for j in range(self.num_nodes):
                 validation_matrix[i, j] = self.Ne_ref[i].subs(
-                    [(xi, self.nodes[str(j)].x), (eta, self.nodes[str(j)].y)]
+                    [(xi, self.xi_ref[j]), (eta, self.eta_ref[j])]
                     )
-
+                    
         if validation_matrix == sy.eye(self.num_nodes):
             return True # if the validation matrix is the identity matrix
         else:
@@ -213,7 +217,7 @@ class Point1(Element2D):
     def __init__(self, node, index):
         xi = sy.symbols('xi')
         eta = sy.symbols('eta')
-        Element2D.__init__(self, "P", node_table, index)
+        Element2D.__init__(self, "P", node, index)
         self.p_ref = sy.Matrix([1.0])
         self.xi_ref = sy.Matrix([0.0])
         self.eta_ref = sy.Matrix([0.0])
@@ -223,7 +227,7 @@ class Point1(Element2D):
 
         if self.num_nodes != self.num_dots:
             raise ValueError(f'Number of nodes provided is {self.num_nodes},'
-                             '{self.num_dots} expected.')
+                             f' {self.num_dots} expected.')
 
     def __name__(self):
         return "1-node Point"
@@ -258,7 +262,7 @@ class Line2(Element2D):
 
         if self.num_nodes != self.num_dots:
             raise ValueError(f'Number of nodes provided is {self.num_nodes},'
-                             '{self.num_dots} expected.')
+                             f' {self.num_dots} expected.')
 
     def __name__(self):
         return "2-node line"
@@ -293,7 +297,7 @@ class Line3(Element2D):
 
         if self.num_nodes != self.num_dots:
             raise ValueError(f'Number of nodes provided is {self.num_nodes},'
-                             '{self.num_dots} expected.')
+                             f' {self.num_dots} expected.')
 
     def __name__(self):
         return "3-node 2nd-order line"
@@ -337,7 +341,7 @@ class Tria3(Triangular):
 
         if self.num_nodes != self.num_dots:
             raise ValueError(f'Number of nodes provided is {self.num_nodes},'
-                             '{self.num_dots} expected.')
+                             f' {self.num_dots} expected.')
 
     def __name__(self):
         return "3-node triangle"
@@ -374,7 +378,7 @@ class Tria6(Triangular):
 
         if self.num_nodes != self.num_dots:
             raise ValueError(f'Number of nodes provided is {self.num_nodes},'
-                             '{self.num_dots} expected.')
+                             f' {self.num_dots} expected.')
 
     def __name__(self):
         return "6-node 2nd-order triangle"
@@ -418,7 +422,7 @@ class Quad4(Quad):
 
         if self.num_nodes != self.num_dots:
             raise ValueError(f'Number of nodes provided is {self.num_nodes},'
-                             '{self.num_dots} expected.')
+                             f' {self.num_dots} expected.')
 
     def __name__(self):
         return "4-node quad"
@@ -454,7 +458,7 @@ class Quad8(Quad):
 
         if self.num_nodes != self.num_dots:
             raise ValueError(f'Number of nodes provided is {self.num_nodes},'
-                             '{self.num_dots} expected.')
+                             f' {self.num_dots} expected.')
 
     def __name__(self):
         return "8-node 2nd-order quad"
@@ -490,7 +494,7 @@ class Quad9(Quad):
 
         if self.num_nodes != self.num_dots:
             raise ValueError(f'Number of nodes provided is {self.num_nodes},'
-                             '{self.num_dots} expected.')
+                             f' {self.num_dots} expected.')
 
     def __name__(self):
         return "9-node 2nd-order quad"
