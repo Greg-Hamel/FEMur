@@ -112,7 +112,7 @@ class Element2D(Element):
                 validation_matrix[i, j] = self.Ne_ref[i].subs(
                     [(xi, self.xi_ref[j]), (eta, self.eta_ref[j])]
                     )
-                    
+
         if validation_matrix == sy.eye(self.num_nodes):
             return True # if the validation matrix is the identity matrix
         else:
@@ -315,10 +315,17 @@ class Line3(Element2D):
         else:
             self.Ne_ref = Line3.Ne_ref
 
-class Triangular(Element2D):
-    'Common class for all Triangular 2D elements'
+
+class Shell(Element2D):
+    'Common class for all shell 2D elements types'
     def __init__(self, node_table, index, using_directly=None):
         Element2D.__init__(self, "T", node_table, index)
+
+
+class Triangular(Shell):
+    'Common class for all Triangular 2D elements'
+    def __init__(self, node_table, index, using_directly=None):
+        Shell.__init__(self, "T", node_table, index)
         # If using Triangular Directly, define self.p, self.xi_ref,
         # self.eta_ref, self.num_dots in your script.
 
@@ -397,10 +404,10 @@ class Tria6(Triangular):
             self.Ne_ref = Tria6.Ne_ref
 
 
-class Quad(Element2D):
+class Quad(Shell):
     'Common class for all Quad 2D elements'
     def __init__(self, node_table, index):
-        Element2D.__init__(self, "Q", node_table, index)
+        Shell.__init__(self, "Q", node_table, index)
         # If using Triangular Directly, define self.p, self.xi_ref,
         # self.eta_ref, self.num_dots in your script.
 
