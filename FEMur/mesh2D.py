@@ -258,7 +258,9 @@ class Mesh2D(Mesh):
         self.D = sy.Matrix([[k_x, k_xy], [k_xy, k_y]])
 
     def solve_elements(self):
-        # Solve all current elements (shape functions, approximation, etc)
+        '''
+        Add Description !!!
+        '''
 
         for i in self.elements.keys():
             key = int(i)
@@ -282,8 +284,14 @@ class Mesh2D(Mesh):
 
             self.calculated = True
 
-    def assemble_stiff_int(self):
-        self.stiff_int = sy.zeros(self.num_nodes)
+    def assemble_stiff_load(self):
+        '''
+        Add Description !!!
+        '''
+
+        self.gbl_stiff = sy.zeros(self.num_nodes)
+        self.gbl_load = sy.zeros(self.num_nodes, 1)
+        self.gbl_omega = sy.zeros(self.num_nodes, 1)
 
         for i in self.elements.keys():
             # To do: Create a method to provide all elements with the
@@ -308,17 +316,34 @@ class Mesh2D(Mesh):
                     nodes_indexes.append(j.index)
 
                 for j in range(self.elements[i].num_nodes):
+                    # Assemble Stiffness matrix
                     for k in range(self.elements[i].num_nodes):
-                        self.stiff_int[nodes_indexes[j], nodes_indexes[k]] = (
-                            self.stiff_int[nodes_indexes[j], nodes_indexes[k]]
+                        self.gbl_stiff[nodes_indexes[j], nodes_indexes[k]] = (
+                            self.gbl_stiff[nodes_indexes[j], nodes_indexes[k]]
                             + self.elements[i].K_e[j, k]
                             )
 
-    def update_stiff_cauchy(self):
-        if self.stiff_int is None:
-            self.assemble_stiff_int()
+                    # Assemble Load vector
+                    self.gbl_load[nodes_indexes[j]] = (
+                        self.gbl_load[nodes_indexes[j]]
+                        + self.elements[i].F_e[j]
+                        )
 
-        new_stiff_int = self.stiff_int
+        return None
+
+    def update_stiff_load_cauchy(self):
+        '''
+        Add Description !!!
+
+        Only affects nodes pertaining to line elements. It will overwrite nodes
+        that were defined under the first assembler.
+        '''
+        if self.gbl_stiff is None:
+            self.assemble_stiff_load()
+
+        new_gbl_stiff = self.gbl_stiff
+        new_gbl_load = self.gbl_load
+
         for i in self.elements.keys():
             # Find all nodes related to the cauchy conditions and
             # reset them to zero.
@@ -334,8 +359,10 @@ class Mesh2D(Mesh):
                     nodes_indexes.append(self.elements[j].index)
 
                 for j in nodes_indexes:
-                    for k in nodes_indexes:
-                        new_stiff_int[j, k] = 0
+                    for k in nodes_indexes:  # Reset line nodes in stiffness
+                        new_gbl_stiff[j, k] = 0
+
+                    new_gbl_load[j] = 0  # Reset line nodes in load vector
 
         for i in self.elements.keys():
 
@@ -350,16 +377,25 @@ class Mesh2D(Mesh):
                     nodes_indexes.append(j.index)
 
                 for j in range(self.elements[i].num_nodes):
+                    # Update lines nodes with cauchy condition in stiffness
                     for k in range(self.elements[i].num_nodes):
-                        new_stiff_int[nodes_indexes[j], nodes_indexes[k]] = (
-                            new_stiff_int[nodes_indexes[j], nodes_indexes[k]]
+                        new_gbl_stiff[nodes_indexes[j], nodes_indexes[k]] = (
+                            new_gbl_stiff[nodes_indexes[j], nodes_indexes[k]]
                             + self.elements[i].K_e[j, k]
                             )
 
-        self.cauchy_applied = True
-        self.stiff_int = new_stiff_int
+                    new_gbl_load[nodes_indexes[j]] = (
+                        new_gbl_load[nodes_indexes[j]]
+                        + self.elements[i].F_e[j]
+                        )
 
-    def update_stiff_dirichlet(self, impose, x=None, y=None):
+        self.cauchy_applied = True
+        self.gbl_stiff = new_gbl_stiff
+        self.gbl_load = new_gbl_load
+
+        return None
+
+    def update_stiff_load_dirichlet(self, impose, x=None, y=None):
         '''
         Impose the 'impose' value on all nodes corresponding to value of x or y
         provided.
@@ -372,37 +408,58 @@ class Mesh2D(Mesh):
         elif x < 0 or y < 0:
             raise ValueError('One or more coordinate(s) is negative.')
 
-        if self.stiff_int is None:
-            self.assemble_stiff_int()
+        if self.gbl_stiff is None or self.gbl_load is None:
+            self.assemble_stiff_load()
         if self.cauchy_applied is False:
-            self.update_stiff_cauchy()
+            self.update_stiff_load_cauchy()
 
-        new_stiff_int = self.stiff_int
+        new_gbl_stiff = self.gbl_stiff
+        new_gbl_load = self.gbl_load
+        new_gbl_omega = self.gbl_omega
 
         if x is not None:
             for i in self.nodes.keys():
                 if self.nodes[i].x == x:
-                    new_stiff_int[self.nodes[i].index, :] = 0
-                    new_stiff_int[:, self.nodes[i].index] = 0
-                    new_stiff_int[self.nodes[i].index, self.nodes[i].index] = (
-                        impose
-                    )
+                    new_gbl_stiff[self.nodes[i].index, :] = 0
+                    new_gbl_stiff[:, self.nodes[i].index] = 0
+                    new_gbl_stiff[self.nodes[i].index, self.nodes[i].index] = (
+                        1
+                        )
+
+                    new_gbl_load[self.nodes[i].index] = 0
+
+                    new_gbl_omega[self.nodes[i].index] = impose
+
         elif y is not None:
             for i in self.nodes.keys():
                 if self.nodes[i].y == y:
-                    new_stiff_int[self.nodes[i].index, :] = 0
-                    new_stiff_int[:, self.nodes[i].index] = 0
-                    new_stiff_int[self.nodes[i].index, self.nodes[i].index] = (
-                        impose
-                    )
+                    new_gbl_stiff[self.nodes[i].index, :] = 0
+                    new_gbl_stiff[:, self.nodes[i].index] = 0
+                    new_gbl_stiff[self.nodes[i].index, self.nodes[i].index] = (
+                        1
+                        )
+
+                    new_gbl_load[self.nodes[i].index] = 0
+
+                    new_gbl_omega[self.nodes[i].index] = impose
+
         else:  # x and y and not None
             for i in self.nodes.keys():
                 if self.nodes[i].y == y and self.nodes[i].x == x:
-                    new_stiff_int[self.nodes[i].index, :] = 0
-                    new_stiff_int[:, self.nodes[i].index] = 0
-                    new_stiff_int[self.nodes[i].index, self.nodes[i].index] = (
-                        impose
-                    )
+                    new_gbl_stiff[self.nodes[i].index, :] = 0
+                    new_gbl_stiff[:, self.nodes[i].index] = 0
+                    new_gbl_stiff[self.nodes[i].index, self.nodes[i].index] = (
+                        1
+                        )
 
-        self.stiff_int = new_stiff_int
+                    new_gbl_load[self.nodes[i].index] = 0
+
+                    new_gbl_omega[self.nodes[i].index] = impose
+
+        self.gbl_stiff = new_gbl_stiff
+        self.gbl_load = new_gbl_load
+        self.gbl_omega = new_gbl_omega
+
         self.dirichlet_applied = True
+
+        return None
