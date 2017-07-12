@@ -17,6 +17,8 @@ class Mesh2D(Mesh):
         self.file_name = file_name
         self.d = sy.Matrix(conditions)
         self.calculated = False #  Solving has not been completed yet.
+        self.cauchy_applied = False
+        self.dirichlet_applied = False
 
         # Define used variable as None in order to check for their definition
         # later on.
@@ -25,6 +27,7 @@ class Mesh2D(Mesh):
         self.nodal_distance = None
         self.Le_container = None
         self.de_container = None
+        self.D = None
 
     def __str__(self):
         if self.elements is None:
@@ -279,5 +282,127 @@ class Mesh2D(Mesh):
 
             self.calculated = True
 
-    def solve_stiff_int(self):
+    def assemble_stiff_int(self):
         self.stiff_int = sy.zeros(self.num_nodes)
+
+        for i in self.elements.keys():
+            # To do: Create a method to provide all elements with the
+            # surrounding conditions.
+            self.elements[i].D = self.D
+            self.elements[i].h = self.h
+            self.elements[i].e = self.e
+            self.elements[i].t_ext = self.t_ext
+
+            self.elements[i].solve_heat_stiff()
+            self.elements[i].solve_heat_load()
+
+            is_point = isinstance(self.elements[i], Point1)  # Is it a Point1
+            is_line2 = isinstance(self.elements[i], Line2)  # Is it a Line2
+            is_line3 = isinstance(self.elements[i], Line3)  # Is it a Line3
+
+            if not is_point and not is_line2 and not is_line3:
+                # If something else than a point or a line.
+                nodes_indexes = []
+                for j in self.elements[i].node_table:
+                    # Create a list with all the element nodes indexex
+                    nodes_indexes.append(j.index)
+
+                for j in range(self.elements[i].num_nodes):
+                    for k in range(self.elements[i].num_nodes):
+                        self.stiff_int[nodes_indexes[j], nodes_indexes[k]] = (
+                            self.stiff_int[nodes_indexes[j], nodes_indexes[k]]
+                            + self.elements[i].K_e[j, k]
+                            )
+
+    def update_stiff_cauchy(self):
+        if self.stiff_int is None:
+            self.assemble_stiff_int()
+
+        new_stiff_int = self.stiff_int
+        for i in self.elements.keys():
+            # Find all nodes related to the cauchy conditions and
+            # reset them to zero.
+
+            is_line2 = isinstance(self.elements[i], Line2)  # Is it a Line2
+            is_line3 = isinstance(self.elements[i], Line3)  # Is it a Line3
+
+            if is_line2 or is_line3:
+                # If a line.
+                nodes_indexes = []
+                for j in self.elements[i].node_table:
+                    # Create a list with all the element nodes indexex
+                    nodes_indexes.append(self.elements[j].index)
+
+                for j in nodes_indexes:
+                    for k in nodes_indexes:
+                        new_stiff_int[j, k] = 0
+
+        for i in self.elements.keys():
+
+            is_line2 = isinstance(self.elements[i], Line2)  # Is it a Line2
+            is_line3 = isinstance(self.elements[i], Line3)  # Is it a Line3
+
+            if is_line2 or is_line3:
+                # If something else than a point or a line.
+                nodes_indexes = []
+                for j in self.elements[i].node_table:
+                    # Create a list with all the element nodes indexex
+                    nodes_indexes.append(j.index)
+
+                for j in range(self.elements[i].num_nodes):
+                    for k in range(self.elements[i].num_nodes):
+                        new_stiff_int[nodes_indexes[j], nodes_indexes[k]] = (
+                            new_stiff_int[nodes_indexes[j], nodes_indexes[k]]
+                            + self.elements[i].K_e[j, k]
+                            )
+
+        self.cauchy_applied = True
+        self.stiff_int = new_stiff_int
+
+    def update_stiff_dirichlet(self, impose, x=None, y=None):
+        '''
+        Impose the 'impose' value on all nodes corresponding to value of x or y
+        provided.
+
+        This will clear the row and column associated with all nodes,
+        effectively cancelling all neighboring nodes from having an impact on the dirichelt nodes.
+        '''
+        if x == y and x is None:
+            raise ValueError('No coordinates were provided.')
+        elif x < 0 or y < 0:
+            raise ValueError('One or more coordinate(s) is negative.')
+
+        if self.stiff_int is None:
+            self.assemble_stiff_int()
+        if self.cauchy_applied is False:
+            self.update_stiff_cauchy()
+
+        new_stiff_int = self.stiff_int
+
+        if x is not None:
+            for i in self.nodes.keys():
+                if self.nodes[i].x == x:
+                    new_stiff_int[self.nodes[i].index, :] = 0
+                    new_stiff_int[:, self.nodes[i].index] = 0
+                    new_stiff_int[self.nodes[i].index, self.nodes[i].index] = (
+                        impose
+                    )
+        elif y is not None:
+            for i in self.nodes.keys():
+                if self.nodes[i].y == y:
+                    new_stiff_int[self.nodes[i].index, :] = 0
+                    new_stiff_int[:, self.nodes[i].index] = 0
+                    new_stiff_int[self.nodes[i].index, self.nodes[i].index] = (
+                        impose
+                    )
+        else:  # x and y and not None
+            for i in self.nodes.keys():
+                if self.nodes[i].y == y and self.nodes[i].x == x:
+                    new_stiff_int[self.nodes[i].index, :] = 0
+                    new_stiff_int[:, self.nodes[i].index] = 0
+                    new_stiff_int[self.nodes[i].index, self.nodes[i].index] = (
+                        impose
+                    )
+
+        self.stiff_int = new_stiff_int
+        self.dirichlet_applied = True

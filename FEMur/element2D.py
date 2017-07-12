@@ -210,6 +210,7 @@ class Element2D(Element):
 
             self.trial_prime = trial2
 
+
 class Point1(Element2D):
     'Class for all single-node elements.'
     Ne_ref = None
@@ -245,12 +246,13 @@ class Point1(Element2D):
         else:
             self.Ne_ref = Point1.Ne_ref
 
+
 class Line(Element2D):
     'Common class for all Line 2D elements.'
     def __init__(self, node_table, index, using_directly=None):
         Element2D.__init__(self, "L", node_table, index)
 
-    def solve_heat_stiff_cauchy(self, h):
+    def solve_heat_stiff(self):
         '''
         Get Heat Stiffness Matrix for Cauchy condition in Sympy format.
         Size: [Num_node x Num_node]
@@ -267,13 +269,13 @@ class Line(Element2D):
         if self.Je is None:
             self.get_Je()
 
-        K_e = h * self.Je * self.integrate_domain(
+        K_e = self.h * self.Je * self.integrate_domain(
                                             self.Ne_ref.T * self.Ne_ref
                                             )
 
         self.K_e = K_e
 
-    def solve_heat_load_cauchy(self, h, t_ext):
+    def solve_heat_load(self):
         '''
         Get Heat Load Vector for Cauchy condition in Sympy format.
         Size: [Num_node x Num_node]
@@ -290,7 +292,8 @@ class Line(Element2D):
         if self.Je is None:
             self.get_Je()
 
-        F_e = h * self.Je * self.integrate_domain(self.Ne_ref.T)
+        F_e = (self.h * self.Je * self.t_ext
+               * self.integrate_domain(self.Ne_ref.T))
 
         self.F_e = F_e
 
@@ -342,6 +345,7 @@ class Line2(Line):
         else:
             self.Ne_ref = Line2.Ne_ref
 
+
 class Line3(Line):
     'Class for 2D 2nd order line elements with 3 nodes.'
     Ne_ref = None
@@ -385,7 +389,7 @@ class Shell(Element2D):
     def __init__(self, node_table, index, using_directly=None):
         Element2D.__init__(self, "T", node_table, index)
 
-    def solve_heat_stiff(self, D, h, e):
+    def solve_heat_stiff(self):
         '''
         Get Heat Stiffness Matrix in Sympy format.
         Size: [Num_node x Num_node]
@@ -398,9 +402,6 @@ class Shell(Element2D):
         plane direction and convection through both sides of the surface
         created by the element.
         '''
-        self.D = D
-        self.h = h
-        self.e = e
 
         if self.Be is None:
             self.get_Be()
@@ -413,7 +414,7 @@ class Shell(Element2D):
         self.K_e = K_e
 
 
-    def solve_heat_load(self, h, e, t_ext):
+    def solve_heat_load(self):
         '''
         Get Heat Load Vector in Sympy format.
         Size: [Num_node x Num_node]
@@ -425,7 +426,8 @@ class Shell(Element2D):
         Returns the head load vector for the element assuming convection
         through both sides of the surface created by the element.
         '''
-        F_e = (2 * h * t_ext / e) * self.integrate_domain(self.Ne_ref.T)
+        F_e = ((2 * self.h * self.t_ext / self.e)
+               * self.integrate_domain(self.Ne_ref.T))
 
         self.F_e = F_e
 
