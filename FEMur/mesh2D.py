@@ -4,7 +4,6 @@ import numpy as np
 import scipy as sc
 import matplotlib.pyplot as plt
 from math import ceil
-from scipy.special import p_roots
 
 
 class Mesh2D(Mesh):
@@ -243,20 +242,6 @@ class Mesh2D(Mesh):
 
         self.de = de
 
-    def set_D_matrix(k_x, k_y=None, k_xy=None):
-        '''
-        Provide [D] with its diffusion factors (K)
-
-        [D] = [k_x  k_xy]
-              [k_xy  k_y]
-        '''
-        if k_y is None:
-            k_y = k_x
-        if k_xy is None:
-            k_xy = k_x
-
-        self.D = sy.Matrix([[k_x, k_xy], [k_xy, k_y]])
-
     def solve_elements(self):
         '''
         Add Description !!!
@@ -463,3 +448,43 @@ class Mesh2D(Mesh):
         self.dirichlet_applied = True
 
         return None
+
+    def set_environment(t_ext, h, e, k_x, k_y=None, k_xy=None):
+        '''
+        Provide the environment variable to the mesh
+
+        'T_ext' the temperature of the surounding air.
+        'h' the convection factors.
+        'e' the thickness of the shell.
+
+        [D] with its diffusion factors (K) will be as follows:
+
+        [D] = [k_x  k_xy]
+              [k_xy  k_y]
+        '''
+
+        self.t_ext = t_ext
+        self.h = h
+        self.e = e
+
+        if k_y is None:
+            k_y = k_x
+        if k_xy is None:
+            k_xy = k_x
+
+        self.D = sy.Matrix([[k_x, k_xy], [k_xy, k_y]])
+
+
+    def solve_omega(self):
+        if self.gbl_stiff is None or self.gbl_load is None:
+            self.assemble_stiff_load()
+        if self.cauchy_applied is False:
+            self.update_stiff_load_cauchy()
+        if self.dirichlet_applied is False:
+            self.update_stiff_load_dirichlet()
+
+        new_omega = self.gbl_omega
+
+        new_omega = (self.gbl_stiff ** -1) * gbl_load
+
+        self.gbl_omega = new_omega
