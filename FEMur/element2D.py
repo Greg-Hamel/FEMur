@@ -34,7 +34,8 @@ class Element2D(Element):
         self.Me_ref = None
         self.Ne_ref = None
         self.GN_ref = None
-        self.xy_coord = None
+        self.x_coord = None
+        self.y_coord = None
         self.de = None
         self.Je = None
         self.detJe = None
@@ -119,46 +120,59 @@ class Element2D(Element):
         else:
             return False
 
-    def get_GN_ref(self):
-        # Get the dot product of the gradient operator and the  shape functions
-        xi, eta = sy.symbols('xi eta')
+    def get_xy_ref(self):
+        '''
+        Gets x in function of 'xi' and 'eta'
+        Gets y in function of 'xi; and 'eta'
 
+        X is the Sum of N_i * X_i for each node of the element.
+        Y is the Sum of N_i * Y_i for each node of the element.
+        '''
         if self.Ne_ref is None:
             self.get_Ne_ref()
 
-        GN_xi = [None] * self.num_nodes
-        GN_eta = [None] * self.num_nodes
-        for i in range(2):
-            for j in range(self.num_nodes):
-                if i == 0:
-                    GN_xi[j] = sy.diff(self.Ne_ref[j], xi)
-                elif i == 1:
-                    GN_eta[j] = sy.diff(self.Ne_ref[j], eta)
-                else:
-                    raise ValueError('Get_Be() tried to go over the number of'
-                                     'dimensions.')
+        x_coord = 0
+        y_coord = 0
 
-        self.GN_ref = sy.Matrix([GN_xi, GN_eta])
-
-    def get_xy_coord_matrix(self):
-        # Get a matrix contain the x coordinates at its first column and the
-        # y coordinates as its second column.
-        xy_coord = sy.zeros(self.num_nodes, 2)
         for i in range(self.num_nodes):
             j = str(i)
-            xy_coord[i, :] = sy.Matrix([[self.nodes[j].x, self.nodes[j].y]])
+            x_coord = x_coord + (self.nodes[j].x * self.Ne_ref[i])
+            y_coord = y_coord + (self.nodes[j].y * self.Ne_ref[i])
 
-        self.xy_coord = xy_coord
+        for i in sy.preorder_traversal(x_coord):
+            if isinstance(i, sy.Float) and abs(i) < 1e-14:
+                x_coord = x_coord.subs(i, round(i, 1))
+            elif isinstance(i, sy.Float):
+                x_coord = x_coord.subs(i, round(i, 15))
+
+        for i in sy.preorder_traversal(y_coord):
+            if isinstance(i, sy.Float) and abs(i) < 1e-14:
+                y_coord = y_coord.subs(i, round(i, 1))
+            elif isinstance(i, sy.Float):
+                y_coord = y_coord.subs(i, round(i, 15))
+
+        self.x_coord = x_coord
+        self.y_coord = y_coord
 
     def get_Je(self):
-        # Get the jacobien
-        if self.xy_coord is None:
-            self.get_xy_coord_matrix()
+        '''
+        Get the Jacobien Matrix between the element and the reference element.
 
-        if self.GN_ref is None:
-            self.get_GN_ref()
+        Where J = [d x_coord/d xi   d y_coord/d xi]
+                  [d x_coord/d eta  d y_coord/d eta]
+        '''
 
-        jacobien = self.GN_ref * self.xy_coord
+        xi, eta = sy.symbols('xi eta')
+
+        if self.x_coord is None or self.y_coord is None:
+            self.get_xy_ref()
+
+        jacobien = sy.zeros(2)
+
+        jacobien[0, 0] = sy.diff(self.x_coord, xi)
+        jacobien[0, 1] = sy.diff(self.y_coord, xi)
+        jacobien[1, 0] = sy.diff(self.x_coord, eta)
+        jacobien[1, 1] = sy.diff(self.y_coord, eta)
 
         self.Je = jacobien
 
@@ -168,7 +182,7 @@ class Element2D(Element):
             self.get_Je()
 
         detJe = self.Je.det()
-        print(detJe)
+        # print('DetJe:\n', detJe)
 
         self.detJe = detJe
 
@@ -177,9 +191,9 @@ class Element2D(Element):
         if self.Je is None:
             self.get_Je() # will define GN_ref at the same time.
 
-        Be = self.Je.inv() * self.GN_ref
+        # Be =
 
-        self.Be = Be
+        # self.Be = Be
 
     def get_trial(self):
         # Get the trial function
@@ -484,8 +498,6 @@ class Triangular(Shell):
                                          (eta, 0, 1)
                                          )
 
-        print(M)
-        print(M * self.detJe)
         return M * self.detJe
 
 
@@ -536,8 +548,8 @@ class Tria6(Triangular):
         Triangular.__init__(self, node_table, index)
 
         self.p_ref = sy.Matrix([1, xi, eta, xi * eta, xi * xi, eta * eta])
-        self.xi_ref = sy.Matrix([0.0, 0.5, 1.0, 0.5, 0.0, 0.0])
-        self.eta_ref = sy.Matrix([0.0, 0.0, 0.0, 0.5, 1.0, 0.5])
+        self.xi_ref = sy.Matrix([0.0, 1.0, 0.0, 0.5, 0.5, 0.0])
+        self.eta_ref = sy.Matrix([0.0, 0.0, 1.0, 0.0, 0.5, 0.5])
         self.num_dots = len(self.xi_ref)
         self.shape = sy.zeros(self.num_dots)
         self.Ne_ref = None
@@ -573,8 +585,8 @@ class CTria6(Triangular):
         Triangular.__init__(self, node_table, index)
 
         self.p_ref = sy.Matrix([1, xi, eta, xi * eta, xi * xi, eta * eta])
-        self.xi_ref = sy.Matrix([0.0, 0.5, 1.0, 0.5, 0.0, 0.0])
-        self.eta_ref = sy.Matrix([0.0, 0.0, 0.0, 0.5, 1.0, 0.5])
+        self.xi_ref = sy.Matrix([0.0, 1.0, 0.0, 0.5, 0.5, 0.0])
+        self.eta_ref = sy.Matrix([0.0, 0.0, 1.0, 0.0, 0.5, 0.5])
         self.num_dots = len(self.xi_ref)
         self.shape = sy.zeros(self.num_dots)
         self.Ne_ref = None

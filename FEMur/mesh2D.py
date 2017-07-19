@@ -117,30 +117,38 @@ class Mesh2D(Mesh):
                         element[node_number] = line[node_index_start + i]
                         node_table.append(self.nodes[element[node_number]])
 
-                    if element['type'] == 1:  # 2-node Line Element
+                    if element['type'] == 1:
+                        # 2-node Line Element
                         self.elements[element['num']] = Line2(node_table,
                                                               element['num'])
-                    elif element['type'] == 2:  # 3-node Triangle Element
+                    elif element['type'] == 2:
+                        # 3-node Triangle Element
                         self.elements[element['num']] = Tria3(node_table,
-                                                               element['num'])
-                    elif element['type'] == 3:  # 4-node Quad Element
+                                                              element['num'])
+                    elif element['type'] == 3:
+                        # 4-node Quad Element
                         self.elements[element['num']] = Quad4(node_table,
-                                                               element['num'])
-                    elif element['type'] == 8:  # 3-node 2nd-order Line Element
+                                                              element['num'])
+                    elif element['type'] == 8:
+                        # 3-node 2nd-order Line Element
                         self.elements[element['num']] = Line3(node_table,
                                                               element['num'])
-                    elif element['type'] == 9:  # 6-node 2nd-order Triangle Element
+                    elif element['type'] == 9:
+                        # 6-node 2nd-order Triangle Element
                         self.elements[element['num']] = Tria6(node_table,
-                                                               element['num'])
-                    elif element['type'] == 10:  # 9-node 2nd-order Quad Element
+                                                              element['num'])
+                    elif element['type'] == 10:
+                        # 9-node 2nd-order Quad Element
                         self.elements[element['num']] = Quad9(node_table,
-                                                               element['num'])
-                    elif element['type'] == 15:  # 1-node Point Element
+                                                              element['num'])
+                    elif element['type'] == 15:
+                        # 1-node Point Element
                         self.elements[element['num']] = Point1(node_table,
                                                                element['num'])
-                    elif element['type'] == 16:  # 8-node 2nd-order Quad Element
+                    elif element['type'] == 16:
+                        # 8-node 2nd-order Quad Element
                         self.elements[element['num']] = Quad8(node_table,
-                                                               element['num'])
+                                                              element['num'])
                     elif element['type'] >= 1 or element['type'] <= 31:
                         e_type = element['type']
                         raise ValueError(f'Unsupported element type. {e_type} is'
