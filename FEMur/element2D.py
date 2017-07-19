@@ -37,6 +37,7 @@ class Element2D(Element):
         self.xy_coord = None
         self.de = None
         self.Je = None
+        self.detJe = None
 
     def __str__(self):
         # Define the print function for Element1D
@@ -144,7 +145,8 @@ class Element2D(Element):
         # y coordinates as its second column.
         xy_coord = sy.zeros(self.num_nodes, 2)
         for i in range(self.num_nodes):
-            xy_coord[i, :] = sy.Matrix([[self.x_coord[i], self.y_coord[i]]])
+            j = str(i)
+            xy_coord[i, :] = sy.Matrix([[self.nodes[j].x, self.nodes[j].y]])
 
         self.xy_coord = xy_coord
 
@@ -166,6 +168,7 @@ class Element2D(Element):
             self.get_Je()
 
         detJe = self.Je.det()
+        print(detJe)
 
         self.detJe = detJe
 
@@ -263,15 +266,13 @@ class Line(Element2D):
         contour of the element.
         '''
 
-        if self.Ne is None:
+        if self.Ne_ref is None:
             self.get_Ne_ref()
 
-        if self.Je is None:
-            self.get_Je()
+        if self.detJe is None:
+            self.get_detJe()
 
-        K_e = self.h * self.Je * self.integrate_domain(
-                                            self.Ne_ref.T * self.Ne_ref
-                                            )
+        K_e = self.h * self.integrate_domain(self.Ne_ref, 2)
 
         self.K_e = K_e
 
@@ -286,18 +287,18 @@ class Line(Element2D):
         Returns the heat load vector for the element assuming convection on the
         contour of the element.
         '''
-        if self.Ne is None:
+        if self.Ne_ref is None:
             self.get_Ne_ref()
 
-        if self.Je is None:
-            self.get_Je()
+        if self.detJe is None:
+            self.get_detJe()
 
-        F_e = (self.h * self.Je * self.t_ext
-               * self.integrate_domain(self.Ne_ref.T))
+        F_e = (self.h * self.t_ext
+               * self.integrate_domain(self.Ne_ref, 1))
 
         self.F_e = F_e
 
-    def integrate_domain(self, to_integrate):
+    def integrate_domain(self, Ne_ref, type_int):
         '''
         Returns domain_integration
 
@@ -305,9 +306,22 @@ class Line(Element2D):
         shape of the triangular element (Tria3, Tria6, etc).
         '''
 
-        M = self.Je * sy.integrate(to_integrate, (xi, -1, 1))
+        xi = sy.symbols('xi')
 
-        return M
+
+
+        if type_int == 1:
+            M = sy.zeros(self.num_nodes, 1)
+            for i in range(self.num_nodes):
+                M[i] = sy.integrate(Ne_ref[i], (xi, -1, 1))
+
+        elif type_int == 2:
+            M = sy.zeros(self.num_nodes)
+            for i in range(self.num_nodes):
+                for j in range(self.num_nodes):
+                    M[i,j] = sy.integrate(Ne_ref[i] * Ne_ref[j], (xi, -1, 1))
+
+        return M * self.detJe
 
 
 class Line2(Line):
@@ -317,7 +331,7 @@ class Line2(Line):
     def __init__(self, node_table, index):
         xi = sy.symbols('xi')
         eta = sy.symbols('eta')
-        Line.__init__(self, "L", node_table, index)
+        Line.__init__(self, node_table, index)
         self.p_ref = sy.Matrix([1.0, xi])
         self.xi_ref = sy.Matrix([-1.0, 1.0])
         self.eta_ref = sy.Matrix([0.0, 0.0])
@@ -353,7 +367,7 @@ class Line3(Line):
     def __init__(self, node_table, index):
         xi = sy.symbols('xi')
         eta = sy.symbols('eta')
-        Line.__init__(self, "L", node_table, index)
+        Line.__init__(self, node_table, index)
         self.p_ref = sy.Matrix([1.0, xi, xi ** 2])
         self.xi_ref = sy.Matrix([-1.0, 0.0, 1.0])
         self.eta_ref = sy.Matrix([0.0, 0.0, 0.0])
@@ -406,10 +420,16 @@ class Shell(Element2D):
         if self.Be is None:
             self.get_Be()
 
-        K_e = (self.Be.T * self.D * * self.Be * self.Je / 2)
-              + ((2 * self.h / self.e) * self.integrate_domain(
-                                            self.Ne_ref.T * self.Ne_ref
-                                            )
+        if self.detJe is None:
+            self.get_detJe()
+
+        # print('Be.T:', self.Be.T.shape)
+        # print('D:', self.D.shape)
+        # print('Be:', self.Be.shape)
+
+        K_e = ((self.Be.T * self.D * self.Be * self.detJe / 2)
+              + ((2 * self.h / self.e) * self.integrate_domain(self.Ne_ref, 2))
+              )
 
         self.K_e = K_e
 
@@ -427,7 +447,7 @@ class Shell(Element2D):
         through both sides of the surface created by the element.
         '''
         F_e = ((2 * self.h * self.t_ext / self.e)
-               * self.integrate_domain(self.Ne_ref.T))
+               * self.integrate_domain(self.Ne_ref, 1))
 
         self.F_e = F_e
 
@@ -435,11 +455,11 @@ class Shell(Element2D):
 class Triangular(Shell):
     'Common class for all Triangular 2D elements'
     def __init__(self, node_table, index, using_directly=None):
-        Shell.__init__(self, "T", node_table, index)
+        Shell.__init__(self, node_table, index)
         # If using Triangular Directly, define self.p, self.xi_ref,
         # self.eta_ref, self.num_dots in your script.
 
-    def integrate_domain(self, to_integrate):
+    def integrate_domain(self, Ne_ref, type_int):
         '''
         Returns domain_integration
 
@@ -447,10 +467,26 @@ class Triangular(Shell):
         shape of the triangular element (Tria3, Tria6, etc).
         '''
 
-        M = self.Je * sy.integrate(sy.integrate(to_integrate, (xi, 0, 1-eta)),
-                                  (eta, 0, 1)
-                                  )
-        return M
+        xi, eta = sy.symbols('xi eta')
+
+        if type_int == 1:
+            M = sy.zeros(self.num_nodes, 1)
+            for i in range(self.num_nodes):
+                M[i] = sy.integrate(sy.integrate(Ne_ref[i],(xi, 0, 1-eta)),
+                                    (eta, 0, 1)
+                                   )
+        elif type_int == 2:
+            M = sy.zeros(self.num_nodes)
+            for i in range(self.num_nodes):
+                for j in range(self.num_nodes):
+                    M[i,j] = sy.integrate(sy.integrate(Ne_ref[i] * Ne_ref[j],
+                                         (xi, 0, 1-eta)),
+                                         (eta, 0, 1)
+                                         )
+
+        print(M)
+        print(M*self.detJe)
+        return M * self.detJe
 
 
 class Tria3(Triangular):
@@ -530,22 +566,40 @@ class Tria6(Triangular):
 class Quad(Shell):
     'Common class for all Quad 2D elements'
     def __init__(self, node_table, index):
-        Shell.__init__(self, "Q", node_table, index)
+        Shell.__init__(self, node_table, index)
         # If using Triangular Directly, define self.p, self.xi_ref,
         # self.eta_ref, self.num_dots in your script.
 
-    def integrate_domain(self, to_integrate):
+    def integrate_domain(self, Ne_ref, type_int):
         '''
         Returns domain_integration
 
         Integrates over the domain of the element based on the pre-defined
         shape of the Quad element (Quad4, Quad8, etc).
+
+        type_int is the matrix type to integrate
+            '1' being a column matrix
+            '2' being a square matrix
         '''
 
-        M = self.Je * sy.integrate(sy.integrate(to_integrate, xi, -1, 1)),
-                                  (eta, -1, 1)
-                                  )
-        return M
+        xi, eta = sy.symbols('xi eta')
+
+        if type_int == 1:
+            M = sy.zeros(self.num_nodes, 1)
+            for i in range(self.num_nodes):
+                M[i] = sy.integrate(sy.integrate(Ne_ref[i],
+                                                (xi, -1, 1)
+                                                ), (eta, -1, 1))
+        elif type_int == 2:
+            M = sy.zeros(self.num_nodes)
+            for i in range(self.num_nodes):
+                for j in range(self.num_nodes):
+                    M[i,j] = sy.integrate(sy.integrate(Ne_ref[i] * Ne_ref[j],
+                                         (xi, -1, 1)),
+                                         (eta, -1, 1)
+                                         )
+
+        return M * self.detJe
 
 
 class Quad4(Quad):
