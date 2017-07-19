@@ -472,7 +472,7 @@ class Triangular(Shell):
         if type_int == 1:
             M = sy.zeros(self.num_nodes, 1)
             for i in range(self.num_nodes):
-                M[i] = sy.integrate(sy.integrate(Ne_ref[i],(xi, 0, 1-eta)),
+                M[i] = sy.integrate(sy.integrate(Ne_ref[i], (xi, 0, 1-eta)),
                                     (eta, 0, 1)
                                    )
         elif type_int == 2:
@@ -485,7 +485,7 @@ class Triangular(Shell):
                                          )
 
         print(M)
-        print(M*self.detJe)
+        print(M * self.detJe)
         return M * self.detJe
 
 
@@ -561,6 +561,43 @@ class Tria6(Triangular):
             self.Ne_ref = Tria6.Ne_ref
         else:
             self.Ne_ref = Tria6.Ne_ref
+
+
+class CTria6(Triangular):
+    "Class representing the Curved-T6 shape."
+    Ne_ref = None
+
+    def __init__(self, node_table, index):
+        eta = sy.symbols('eta')
+        xi = sy.symbols('xi')
+        Triangular.__init__(self, node_table, index)
+
+        self.p_ref = sy.Matrix([1, xi, eta, xi * eta, xi * xi, eta * eta])
+        self.xi_ref = sy.Matrix([0.0, 0.5, 1.0, 0.5, 0.0, 0.0])
+        self.eta_ref = sy.Matrix([0.0, 0.0, 0.0, 0.5, 1.0, 0.5])
+        self.num_dots = len(self.xi_ref)
+        self.shape = sy.zeros(self.num_dots)
+        self.Ne_ref = None
+
+        if self.num_nodes != self.num_dots:
+            raise ValueError(f'Number of nodes provided is {self.num_nodes},'
+                             f' {self.num_dots} expected.')
+
+    def __name__(self):
+        return "6-node 2nd-order triangle"
+
+    def get_Ne_ref(self):
+        # Get the shape functions for the element in the xi and eta domain
+        if CTria6.Ne_ref == None:
+            if self.p_ref is None:
+                self.get_p_ref()
+            if self.Me_ref is None:
+                self.get_inv_Me_ref()
+
+            CTria6.Ne_ref = self.p_ref.T * self.inv_Me_ref
+            self.Ne_ref = CTria6.Ne_ref
+        else:
+            self.Ne_ref = CTria6.Ne_ref
 
 
 class Quad(Shell):
