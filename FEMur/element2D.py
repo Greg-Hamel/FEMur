@@ -182,18 +182,34 @@ class Element2D(Element):
             self.get_Je()
 
         detJe = self.Je.det()
-        # print('DetJe:\n', detJe)
+
+        if detJe <= 0:
+            print('WARNING: Jacobien Matrix of an Element is non-positive.')
 
         self.detJe = detJe
 
+    def get_GN_ref(self):
+
+        xi, eta = sy.symbols('xi eta')
+
+        if self.Ne_ref is None:
+            self.get_Ne_ref()
+
+        GN = sy.Matrix([sy.diff(self.Ne_ref, xi),sy.diff(self.Ne_ref, eta)])
+
+        self.GN_ref = GN
+
     def get_Be(self):
         # Get the B_e matrix
+        if self.GN_ref is None:
+            self.get_GN_ref()
+
         if self.Je is None:
             self.get_Je() # will define GN_ref at the same time.
 
-        # Be =
+        Be = (self.Je ** -1) * self.GN_ref
 
-        # self.Be = Be
+        self.Be = Be
 
     def get_trial(self):
         # Get the trial function
