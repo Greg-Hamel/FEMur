@@ -39,6 +39,7 @@ class Element2D(Element):
         self.de = None
         self.Je = None
         self.detJe = None
+        self.Be = None
 
     def __str__(self):
         # Define the print function for Element1D
@@ -243,6 +244,47 @@ class Element2D(Element):
 
             self.trial_prime = trial2
 
+    def integrate_domain(self, m):
+        '''
+        Returns domain_integration of the provided matrix.
+
+        'm' - Matrix to integrate_domain
+
+        Automatically asigns limits of integration based on the element type.
+
+        This integration takes into account that the request is for an
+        integration over the real domain (x,y). It will automatically convert
+        the element's integration into the reference domain (xi, eta) and
+        multiply by the Jacobien matrix automatically.
+        '''
+
+        xi, eta = sy.symbols('xi eta')
+
+        limits = {
+            'L': {'xi': [-1, 1], 'eta': [0, 0]},
+            'Q': {'xi': [-1, 1], 'eta': [-1, 1]},
+            'T': {'xi': [0, 1-eta], 'eta': [0, 1]}
+        }
+
+        # Double integration (1st - d'xi', 2nd - d'eta')
+        new_M = sy.integrate(
+                             sy.integrate(m, (xi,
+                                              limits[self.e_type]['xi'][0],
+                                              limits[self.e_type]['xi'][1])),
+                             (eta,
+                              limits[self.e_type]['eta'][0],
+                              limits[self.e_type]['eta'][1])
+                            )
+
+        # Check for epsilon values. (Float for zero)
+        M, N = new_M.shape # Find the length and width of Matrix
+        for i in range(M):
+            for j in range(N):
+                if abs(new_M[i, j]) < 1e-15:
+                    new_M[i, j] = 0
+
+        return new_M * self.detJe
+
 
 class Point1(Element2D):
     'Class for all single-node elements.'
@@ -302,7 +344,7 @@ class Line(Element2D):
         if self.detJe is None:
             self.get_detJe()
 
-        K_e = self.h * self.integrate_domain(self.Ne_ref, 2)
+        K_e = self.h * self.integrate_domain(self.Ne_ref.T * self.Ne_ref)
 
         self.K_e = K_e
 
@@ -324,34 +366,9 @@ class Line(Element2D):
             self.get_detJe()
 
         F_e = (self.h * self.t_ext
-               * self.integrate_domain(self.Ne_ref, 1))
+               * self.integrate_domain(self.Ne_ref.T))
 
         self.F_e = F_e
-
-    def integrate_domain(self, Ne_ref, type_int):
-        '''
-        Returns domain_integration
-
-        Integrates over the domain of the element based on the pre-defined
-        shape of the triangular element (Tria3, Tria6, etc).
-        '''
-
-        xi = sy.symbols('xi')
-
-
-
-        if type_int == 1:
-            M = sy.zeros(self.num_nodes, 1)
-            for i in range(self.num_nodes):
-                M[i] = sy.integrate(Ne_ref[i], (xi, -1, 1))
-
-        elif type_int == 2:
-            M = sy.zeros(self.num_nodes)
-            for i in range(self.num_nodes):
-                for j in range(self.num_nodes):
-                    M[i,j] = sy.integrate(Ne_ref[i] * Ne_ref[j], (xi, -1, 1))
-
-        return M * self.detJe
 
 
 class Line2(Line):
@@ -457,11 +474,13 @@ class Shell(Element2D):
         # print('D:', self.D.shape)
         # print('Be:', self.Be.shape)
 
-        K_e = ((self.Be.T * self.D * self.Be * self.detJe / 2)
-              + ((2 * self.h / self.e) * self.integrate_domain(self.Ne_ref, 2))
+        K_e = ((self.integrate_domain(self.Be.T * self.D * self.Be))
+               + (2 * self.h * self.integrate_domain(self.Ne_ref.T
+                                                     * self.Ne_ref) / self.e)
               )
 
         self.K_e = K_e
+        sy.pprint(K_e)
 
 
     def solve_heat_load(self):
@@ -477,9 +496,10 @@ class Shell(Element2D):
         through both sides of the surface created by the element.
         '''
         F_e = ((2 * self.h * self.t_ext / self.e)
-               * self.integrate_domain(self.Ne_ref, 1))
+               * self.integrate_domain(self.Ne_ref.T))
 
         self.F_e = F_e
+        sy.pprint(F_e)
 
 
 class Triangular(Shell):
@@ -488,33 +508,6 @@ class Triangular(Shell):
         Shell.__init__(self, node_table, index)
         # If using Triangular Directly, define self.p, self.xi_ref,
         # self.eta_ref, self.num_dots in your script.
-
-    def integrate_domain(self, Ne_ref, type_int):
-        '''
-        Returns domain_integration
-
-        Integrates over the domain of the element based on the pre-defined
-        shape of the triangular element (Tria3, Tria6, etc).
-        '''
-
-        xi, eta = sy.symbols('xi eta')
-
-        if type_int == 1:
-            M = sy.zeros(self.num_nodes, 1)
-            for i in range(self.num_nodes):
-                M[i] = sy.integrate(sy.integrate(Ne_ref[i], (xi, 0, 1-eta)),
-                                    (eta, 0, 1)
-                                   )
-        elif type_int == 2:
-            M = sy.zeros(self.num_nodes)
-            for i in range(self.num_nodes):
-                for j in range(self.num_nodes):
-                    M[i,j] = sy.integrate(sy.integrate(Ne_ref[i] * Ne_ref[j],
-                                         (xi, 0, 1-eta)),
-                                         (eta, 0, 1)
-                                         )
-
-        return M * self.detJe
 
 
 class Tria3(Triangular):
@@ -634,37 +627,6 @@ class Quad(Shell):
         Shell.__init__(self, node_table, index)
         # If using Triangular Directly, define self.p, self.xi_ref,
         # self.eta_ref, self.num_dots in your script.
-
-    def integrate_domain(self, Ne_ref, type_int):
-        '''
-        Returns domain_integration
-
-        Integrates over the domain of the element based on the pre-defined
-        shape of the Quad element (Quad4, Quad8, etc).
-
-        type_int is the matrix type to integrate
-            '1' being a column matrix
-            '2' being a square matrix
-        '''
-
-        xi, eta = sy.symbols('xi eta')
-
-        if type_int == 1:
-            M = sy.zeros(self.num_nodes, 1)
-            for i in range(self.num_nodes):
-                M[i] = sy.integrate(sy.integrate(Ne_ref[i],
-                                                (xi, -1, 1)
-                                                ), (eta, -1, 1))
-        elif type_int == 2:
-            M = sy.zeros(self.num_nodes)
-            for i in range(self.num_nodes):
-                for j in range(self.num_nodes):
-                    M[i,j] = sy.integrate(sy.integrate(Ne_ref[i] * Ne_ref[j],
-                                         (xi, -1, 1)),
-                                         (eta, -1, 1)
-                                         )
-
-        return M * self.detJe
 
 
 class Quad4(Quad):
