@@ -182,7 +182,16 @@ class Element2D(Element):
         if self.Je is None:
             self.get_Je()
 
-        detJe = self.Je.det()
+        if self.e_type == 'L':
+            # Line element does not have an area, using length instead.
+            detJe = self.length / 2
+        else:
+            detJe = self.Je.det()
+
+        for i in sy.preorder_traversal(detJe):
+            if isinstance(i, sy.Float) and abs(i) < 1e-13:
+                print('yep')
+                detJe = detJe.subs(i, round(i, 1))
 
         if detJe <= 0:
             print('WARNING: Jacobien Matrix of an Element is non-positive.')
@@ -223,7 +232,7 @@ class Element2D(Element):
             trial = self.Ne_ref * self.de
             trial2 = trial
             for i in sy.preorder_traversal(trial):
-                if isinstance(i, sy.Float) and abs(i) < 1e-15:
+                if isinstance(i, sy.Float) and abs(i) < 1e-14:
                     trial2 = trial2.subs(i, round(i, 1))
 
             self.trial = trial2
@@ -239,7 +248,7 @@ class Element2D(Element):
             trial = self.Be * self.de
             trial2 = trial
             for i in sy.preorder_traversal(trial):
-                if isinstance(i, sy.Float) and abs(i) < 1e-15:
+                if isinstance(i, sy.Float) and abs(i) < 1e-14:
                     trial2 = trial2.subs(i, round(i, 1))
 
             self.trial_prime = trial2
@@ -261,26 +270,36 @@ class Element2D(Element):
         xi, eta = sy.symbols('xi eta')
 
         limits = {
-            'L': {'xi': [-1, 1], 'eta': [0, 0]},
+            'L': {'xi': [-1, 1]},
             'Q': {'xi': [-1, 1], 'eta': [-1, 1]},
             'T': {'xi': [0, 1-eta], 'eta': [0, 1]}
         }
 
-        # Double integration (1st - d'xi', 2nd - d'eta')
-        new_M = sy.integrate(
-                             sy.integrate(m, (xi,
-                                              limits[self.e_type]['xi'][0],
-                                              limits[self.e_type]['xi'][1])),
-                             (eta,
-                              limits[self.e_type]['eta'][0],
-                              limits[self.e_type]['eta'][1])
-                            )
+        if self.e_type == 'L':
+            new_M = sy.Matrix(sy.integrate(m,(xi,
+                                    limits[self.e_type]['xi'][0],
+                                    limits[self.e_type]['xi'][1]
+                                   )
+                                ))
+
+        elif self.e_type in limits.keys():
+            # Double integration (1st - d'xi', 2nd - d'eta')
+            new_M = sy.Matrix(sy.integrate(sy.integrate(m,
+                                              (xi,
+                                               limits[self.e_type]['xi'][0],
+                                               limits[self.e_type]['xi'][1]
+                                              )
+                                             ),
+                                 (eta,
+                                  limits[self.e_type]['eta'][0],
+                                  limits[self.e_type]['eta'][1])
+                                ))
 
         # Check for epsilon values. (Float for zero)
         M, N = new_M.shape # Find the length and width of Matrix
         for i in range(M):
             for j in range(N):
-                if abs(new_M[i, j]) < 1e-15:
+                if abs(new_M[i, j]) < 1e-14 and abs(new_M[i, j]) != 0:
                     new_M[i, j] = 0
 
         return new_M * self.detJe
@@ -326,6 +345,15 @@ class Line(Element2D):
     'Common class for all Line 2D elements.'
     def __init__(self, node_table, index, using_directly=None):
         Element2D.__init__(self, "L", node_table, index)
+        self.length = self.get_length()
+
+    def get_length(self):
+
+        length = (((self.nodes['0'].x - self.nodes[str(self.num_nodes - 1)].x)
+                 ** 2 + (self.nodes['0'].y - self.nodes[str(self.num_nodes -
+                 1)].y) ** 2) ** 0.5)
+
+        return length
 
     def solve_heat_stiff(self):
         '''
@@ -345,7 +373,6 @@ class Line(Element2D):
             self.get_detJe()
 
         K_e = self.h * self.integrate_domain(self.Ne_ref.T * self.Ne_ref)
-
         self.K_e = K_e
 
     def solve_heat_load(self):
@@ -365,8 +392,12 @@ class Line(Element2D):
         if self.detJe is None:
             self.get_detJe()
 
+        sy.pprint(self.Ne_ref.T)
+        sy.pprint(self.integrate_domain(self.Ne_ref.T))
         F_e = (self.h * self.t_ext
                * self.integrate_domain(self.Ne_ref.T))
+
+        sy.pprint(F_e)
 
         self.F_e = F_e
 
@@ -416,7 +447,7 @@ class Line3(Line):
         eta = sy.symbols('eta')
         Line.__init__(self, node_table, index)
         self.p_ref = sy.Matrix([1.0, xi, xi ** 2])
-        self.xi_ref = sy.Matrix([-1.0, 0.0, 1.0])
+        self.xi_ref = sy.Matrix([-1.0, 1.0, 0.0])
         self.eta_ref = sy.Matrix([0.0, 0.0, 0.0])
         self.num_dots = len(self.xi_ref)
         self.shape = sy.zeros(self.num_dots)
@@ -474,14 +505,12 @@ class Shell(Element2D):
         # print('D:', self.D.shape)
         # print('Be:', self.Be.shape)
 
-        K_e = ((self.integrate_domain(self.Be.T * self.D * self.Be))
+        K_e = (self.integrate_domain(self.Be.T * self.D * self.Be)
                + (2 * self.h * self.integrate_domain(self.Ne_ref.T
                                                      * self.Ne_ref) / self.e)
               )
 
         self.K_e = K_e
-        sy.pprint(K_e)
-
 
     def solve_heat_load(self):
         '''
@@ -498,8 +527,9 @@ class Shell(Element2D):
         F_e = ((2 * self.h * self.t_ext / self.e)
                * self.integrate_domain(self.Ne_ref.T))
 
-        self.F_e = F_e
         sy.pprint(F_e)
+        print(self.detJe)
+        self.F_e = F_e
 
 
 class Triangular(Shell):

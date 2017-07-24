@@ -280,7 +280,11 @@ class Mesh2D(Mesh):
 
     def assemble_stiff_load(self):
         '''
-        Add Description !!!
+        Assemble the Global Stiffness Matrix and Global Load Vector based on
+        elements.
+
+        Only affects nodes pertaining to shell elements. It will overwrite nodes
+        that were defined under the first assembler.
         '''
 
         self.gbl_stiff = sy.zeros(self.num_nodes)
@@ -334,7 +338,8 @@ class Mesh2D(Mesh):
 
     def update_stiff_load_cauchy(self):
         '''
-        Add Description !!!
+        Update the Global Stiffness Matrix and Global Load Vector with the
+        Cauchy Condition.
 
         Only affects nodes pertaining to line elements. It will overwrite nodes
         that were defined under the first assembler.
@@ -344,30 +349,8 @@ class Mesh2D(Mesh):
 
         new_gbl_stiff = self.gbl_stiff
         new_gbl_load = self.gbl_load
+        sy.pprint(self.gbl_load)
         print('\n# UPDATING LINE ELEMENTS WITH CAUCHY #\n')
-
-        for i in self.elements.keys():
-            # Find all nodes related to the cauchy conditions and
-            # reset them to zero.
-            key = int(i)
-
-
-            is_line2 = isinstance(self.elements[i], Line2)  # Is it a Line2
-            is_line3 = isinstance(self.elements[i], Line3)  # Is it a Line3
-
-            if is_line2 or is_line3:
-                print(f"Resetting Element({key})'s Nodes for Cauchy")
-                # If a line.
-                nodes_indexes = []
-                for j in self.elements[i].nodes.keys():
-                    # Create a list with all the element nodes indexes
-                    nodes_indexes.append(self.elements[i].nodes[j].index)
-
-                for j in nodes_indexes:
-                    for k in nodes_indexes:  # Reset line nodes in stiffness
-                        new_gbl_stiff[j, k] = 0
-
-                    new_gbl_load[j] = 0  # Reset line nodes in load vector
 
         for i in self.elements.keys():
             key = int(i)
@@ -425,6 +408,7 @@ class Mesh2D(Mesh):
         new_gbl_load = self.gbl_load
         new_gbl_omega = self.gbl_omega
 
+        sy.pprint(self.gbl_load)
         print('\n# IMPOSING DIRICHLET #\n')
 
         if x is not None:
@@ -436,9 +420,7 @@ class Mesh2D(Mesh):
                     new_gbl_stiff.col_op(self.nodes[i].index, lambda i, j: 0)
                     new_gbl_stiff[self.nodes[i].index, self.nodes[i].index] = 1
 
-                    new_gbl_load[self.nodes[i].index] = 0
-
-                    new_gbl_omega[self.nodes[i].index] = impose
+                    new_gbl_load[self.nodes[i].index] = impose
 
         elif y is not None:
             for i in self.nodes.keys():
@@ -449,9 +431,7 @@ class Mesh2D(Mesh):
                     new_gbl_stiff.col_op(self.nodes[i].index, lambda i, j: 0)
                     new_gbl_stiff[self.nodes[i].index, self.nodes[i].index] = 1
 
-                    new_gbl_load[self.nodes[i].index] = 0
-
-                    new_gbl_omega[self.nodes[i].index] = impose
+                    new_gbl_load[self.nodes[i].index] = impose
 
         else:  # x and y and not None
             for i in self.nodes.keys():
@@ -462,9 +442,7 @@ class Mesh2D(Mesh):
                     new_gbl_stiff.col_op(self.nodes[i].index, lambda i, j: 0)
                     new_gbl_stiff[self.nodes[i].index, self.nodes[i].index] = 1
 
-                    new_gbl_load[self.nodes[i].index] = 0
-
-                    new_gbl_omega[self.nodes[i].index] = impose
+                    new_gbl_load[self.nodes[i].index] = impose
 
         self.gbl_stiff = new_gbl_stiff
         self.gbl_load = new_gbl_load
@@ -514,16 +492,16 @@ class Mesh2D(Mesh):
                                              self.dir_x,
                                              self.dir_y)
 
-        print('ok')
         sy.pprint(self.gbl_stiff)
-
+        sy.pprint(self.gbl_load)
         print('\n# SOLVING FOR OMEGA #\n')
 
         new_omega = self.gbl_omega
 
-        new_omega = (self.gbl_stiff ** -1) * gbl_load
+        new_omega = (self.gbl_stiff ** -1) * self.gbl_load
 
         self.gbl_omega = new_omega
+        print(self.gbl_omega)
 
-    def resolve(self):
+    def plot_result(self):
         pass
