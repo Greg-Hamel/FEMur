@@ -33,6 +33,7 @@ class Element2D(Element):
         self.eta_ref = None
         self.Me_ref = None
         self.Ne_ref = None
+        self.GN = None
         self.GN_ref = None
         self.x_coord = None
         self.y_coord = None
@@ -205,19 +206,34 @@ class Element2D(Element):
         if self.Ne_ref is None:
             self.get_Ne_ref()
 
-        GN = sy.Matrix([sy.diff(self.Ne_ref, xi),sy.diff(self.Ne_ref, eta)])
+        GN_ref = sy.Matrix([sy.diff(self.Ne_ref, xi),sy.diff(self.Ne_ref, eta)])
 
-        self.GN_ref = GN
+        for i in range(2):
+            for j in range(self.num_nodes):
+                GN_ref[i, j] = GN_ref[i, j].subs([(xi, self.xi_ref[j]),
+                                                  (eta, self.eta_ref[j])])
+
+        self.GN_ref = GN_ref
+
+    def get_GN(self):
+
+        if self.GN_ref is None:
+            self.get_GN_ref()
+
+        if self.detJe is None:
+            self.get_detJe()
+
+        self.GN = self.detJe * self.GN_ref
 
     def get_Be(self):
         # Get the B_e matrix
-        if self.GN_ref is None:
-            self.get_GN_ref()
+        if self.GN is None:
+            self.get_GN()
 
         if self.Je is None:
             self.get_Je() # will define GN_ref at the same time.
 
-        Be = (self.Je ** -1) * self.GN_ref
+        Be = (self.Je ** -1) * self.GN
 
         self.Be = Be
 
