@@ -3,6 +3,7 @@ import sympy as sy
 import numpy as np
 import scipy as sc
 import matplotlib.pyplot as plt
+import scipy.interpolate
 from math import ceil
 
 
@@ -28,6 +29,8 @@ class Mesh2D(Mesh):
         self.de_container = None
         self.D = None
         self.gbl_stiff = None
+        self.gbl_load = None
+        self.gbl_omega = None
 
     def __str__(self):
         if self.elements is None:
@@ -63,7 +66,7 @@ class Mesh2D(Mesh):
                     pass
                 else:
                     node['num'], node['x'], node['y'], node['z'] = line.split(' ')
-                    self.nodes[node['num']] = Node2D(float(node['x']),
+                    self.nodes[int(node['num']) - 1] = Node2D(float(node['x']),
                                                      float(node['y']),
                                                      int(node['num']) - 1)
             elif line == '$Nodes':  # Set Record_node Flag
@@ -113,9 +116,8 @@ class Mesh2D(Mesh):
 
                     for i in range(len(line) - node_index_start):
                         # node_table creation
-                        node_number = str(i)
-                        element[node_number] = line[node_index_start + i]
-                        node_table.append(self.nodes[element[node_number]])
+                        element[i] = int(line[node_index_start + i]) - 1
+                        node_table.append(self.nodes[element[i]])
 
                     if element['type'] == 1:
                         # 2-node Line Element
@@ -266,16 +268,6 @@ class Mesh2D(Mesh):
             validation = self.elements[i].validate_Ne_ref()
             print(f'Validation of shape function is: {validation}')
 
-            is_point = isinstance(self.elements[i], Point1)  # Is it a Point1
-            is_line2 = isinstance(self.elements[i], Line2)  # Is it a Line2
-            is_line3 = isinstance(self.elements[i], Line3)  # Is it a Line3
-
-            if not is_point and not is_line2 and not is_line3:
-                # If something else than a point or a line.
-                print(f"Calculating Element({key})'s shape functions"
-                      f" derivatives")
-                self.elements[i].get_Be()
-
             self.calculated = True
 
     def assemble_stiff_load(self):
@@ -289,7 +281,6 @@ class Mesh2D(Mesh):
 
         self.gbl_stiff = sy.zeros(self.num_nodes)
         self.gbl_load = sy.zeros(self.num_nodes, 1)
-        self.gbl_omega = sy.zeros(self.num_nodes, 1)
         print('\n# STARTING ASSEMBLY #\n')
 
         for i in self.elements.keys():
@@ -302,19 +293,17 @@ class Mesh2D(Mesh):
             self.elements[i].t_ext = self.t_ext
 
             is_point = isinstance(self.elements[i], Point1)  # Is it a Point1
-            is_line2 = isinstance(self.elements[i], Line2)  # Is it a Line2
-            is_line3 = isinstance(self.elements[i], Line3)  # Is it a Line3
 
             if not is_point:
                 print(f"Calculating Element({key})'s Stiffness Matrix")
-                self.elements[i].solve_heat_stiff()
+                # self.elements[i].solve_heat_stiff()
                 print(f"Calculating Element({key})'s Load Vector")
-                self.elements[i].solve_heat_load()
+                self.elements[i].get_C()
+                # self.elements[i].solve_heat_load()
 
-            print(f"Applying Element({key})'s Stiffness Matrix and Load Vector"
+                print(f"Applying Element({key})'s Stiffness Matrix and Load Vector"
                   f"to the global Stiffness Matrix and Global Load Vector")
-            if not is_point and not is_line2 and not is_line3:
-                # If something else than a point or a line.
+
                 nodes_indexes = []
                 for j in self.elements[i].nodes.keys():
                     # Create a list with all the element nodes indexes
@@ -323,69 +312,18 @@ class Mesh2D(Mesh):
                 for j in range(self.elements[i].num_nodes):
                     # Assemble Stiffness matrix
                     for k in range(self.elements[i].num_nodes):
-                        self.gbl_stiff[nodes_indexes[j], nodes_indexes[k]] = (
-                            self.gbl_stiff[nodes_indexes[j], nodes_indexes[k]]
-                            + self.elements[i].K_e[j, k]
+                        self.gbl_stiff[nodes_indexes[j], nodes_indexes[k]] += (
+                            self.elements[i].K_e[j, k]
                             )
 
                     # Assemble Load vector
-                    self.gbl_load[nodes_indexes[j]] = (
-                        self.gbl_load[nodes_indexes[j]]
-                        + self.elements[i].F_e[j]
+                    self.gbl_load[nodes_indexes[j]] += (
+                        self.elements[i].F_e[j]
                         )
 
         return None
 
-    def update_stiff_load_cauchy(self):
-        '''
-        Update the Global Stiffness Matrix and Global Load Vector with the
-        Cauchy Condition.
-
-        Only affects nodes pertaining to line elements. It will overwrite nodes
-        that were defined under the first assembler.
-        '''
-        if self.gbl_stiff is None:
-            self.assemble_stiff_load()
-
-        new_gbl_stiff = self.gbl_stiff
-        new_gbl_load = self.gbl_load
-        sy.pprint(self.gbl_load)
-        print('\n# UPDATING LINE ELEMENTS WITH CAUCHY #\n')
-
-        for i in self.elements.keys():
-            key = int(i)
-
-            is_line2 = isinstance(self.elements[i], Line2)  # Is it a Line2
-            is_line3 = isinstance(self.elements[i], Line3)  # Is it a Line3
-
-            if is_line2 or is_line3:
-                # If a line.
-                print(f"Applying Cauchy Condition to Element({key})'s Nodes.")
-                nodes_indexes = []
-                for j in self.elements[i].nodes.keys():
-                    # Create a list with all the element nodes indexes
-                    nodes_indexes.append(self.elements[i].nodes[j].index)
-
-                for j in range(self.elements[i].num_nodes):
-                    # Update lines nodes with cauchy condition in stiffness
-                    for k in range(self.elements[i].num_nodes):
-                        new_gbl_stiff[nodes_indexes[j], nodes_indexes[k]] = (
-                            new_gbl_stiff[nodes_indexes[j], nodes_indexes[k]]
-                            + self.elements[i].K_e[j, k]
-                            )
-
-                    new_gbl_load[nodes_indexes[j]] = (
-                        new_gbl_load[nodes_indexes[j]]
-                        + self.elements[i].F_e[j]
-                        )
-
-        self.cauchy_applied = True
-        self.gbl_stiff = new_gbl_stiff
-        self.gbl_load = new_gbl_load
-
-        return None
-
-    def update_stiff_load_dirichlet(self, impose, x=None, y=None):
+    def update_stiff_load_dirichlet(self):
         '''
         Impose the 'impose' value on all nodes corresponding to value of x or y
         provided.
@@ -393,67 +331,39 @@ class Mesh2D(Mesh):
         This will clear the row and column associated with all nodes,
         effectively cancelling all neighboring nodes from having an impact on the dirichlet nodes.
         '''
-        if x == y and x is None:
-            raise ValueError('No coordinates were provided.')
-        elif x is not None and y is not None:
-            if x < 0 or y < 0:
-                raise ValueError('One or more coordinate(s) is negative.')
 
         if self.gbl_stiff is None or self.gbl_load is None:
             self.assemble_stiff_load()
-        if self.cauchy_applied is False:
-            self.update_stiff_load_cauchy()
 
         new_gbl_stiff = self.gbl_stiff
         new_gbl_load = self.gbl_load
-        new_gbl_omega = self.gbl_omega
 
+        sy.pprint(self.gbl_stiff)
         sy.pprint(self.gbl_load)
         print('\n# IMPOSING DIRICHLET #\n')
 
-        if x is not None:
-            for i in self.nodes.keys():
-                if self.nodes[i].x == x:
-                    key = int(i)
-                    print(f"Imposing Dirichlet on Node({key}).")
-                    new_gbl_stiff.row_op(self.nodes[i].index, lambda i, j: 0)
-                    new_gbl_stiff.col_op(self.nodes[i].index, lambda i, j: 0)
-                    new_gbl_stiff[self.nodes[i].index, self.nodes[i].index] = 1
 
-                    new_gbl_load[self.nodes[i].index] = impose
+        for i in self.dirichlet_nodes:
+            print(f"Imposing Dirichlet on Node({i}).")
+            new_gbl_load -= (new_gbl_stiff[:, self.nodes[i].index]
+                               * self.dirichlet)
 
-        elif y is not None:
-            for i in self.nodes.keys():
-                if self.nodes[i].y == y:
-                    key = int(i)
-                    print(f"Imposing Dirichlet on Node({key}).")
-                    new_gbl_stiff.row_op(self.nodes[i].index, lambda i, j: 0)
-                    new_gbl_stiff.col_op(self.nodes[i].index, lambda i, j: 0)
-                    new_gbl_stiff[self.nodes[i].index, self.nodes[i].index] = 1
+            for j in range(self.num_nodes):
+                new_gbl_stiff[self.nodes[i].index, j] = 0
+                new_gbl_stiff[j, self.nodes[i].index] = 0
+            new_gbl_stiff[self.nodes[i].index, self.nodes[i].index] = 1
+            new_gbl_load[self.nodes[i].index] = self.dirichlet
 
-                    new_gbl_load[self.nodes[i].index] = impose
-
-        else:  # x and y and not None
-            for i in self.nodes.keys():
-                if self.nodes[i].y == y and self.nodes[i].x == x:
-                    key = int(i)
-                    print(f"Imposing Dirichlet on Node({key}).")
-                    new_gbl_stiff.row_op(self.nodes[i].index, lambda i, j: 0)
-                    new_gbl_stiff.col_op(self.nodes[i].index, lambda i, j: 0)
-                    new_gbl_stiff[self.nodes[i].index, self.nodes[i].index] = 1
-
-                    new_gbl_load[self.nodes[i].index] = impose
 
         self.gbl_stiff = new_gbl_stiff
         self.gbl_load = new_gbl_load
-        self.gbl_omega = new_gbl_omega
 
         self.dirichlet_applied = True
 
         return None
 
-    def set_environment(self, t_ext, h, e, dirichlet, k_x, k_y=None, k_xy=None,
-                        d_x=None, d_y=None):
+    def set_environment(self, t_ext, h, e, dirichlet, dirichlet_nodes, k_x,
+                        k_y=None, k_xy=None):
         '''
         Provide the environment variable to the mesh
 
@@ -471,13 +381,12 @@ class Mesh2D(Mesh):
         self.h = h
         self.e = e
         self.dirichlet = dirichlet
-        self.dir_x = d_x
-        self.dir_y = d_y
+        self.dirichlet_nodes = dirichlet_nodes  # table with nodes affected.
 
         if k_y is None:
             k_y = k_x
         if k_xy is None:
-            k_xy = 0
+            k_xy = k_x
 
         self.D = sy.Matrix([[k_x, k_xy], [k_xy, k_y]])
 
@@ -485,23 +394,40 @@ class Mesh2D(Mesh):
     def solve_omega(self):
         if self.gbl_stiff is None or self.gbl_load is None:
             self.assemble_stiff_load()
-        if self.cauchy_applied is False:
-            self.update_stiff_load_cauchy()
         if self.dirichlet_applied is False:
-            self.update_stiff_load_dirichlet(self.dirichlet,
-                                             self.dir_x,
-                                             self.dir_y)
+            self.update_stiff_load_dirichlet()
 
         sy.pprint(self.gbl_stiff)
         sy.pprint(self.gbl_load)
         print('\n# SOLVING FOR OMEGA #\n')
 
-        new_omega = self.gbl_omega
+        new_stiff = sy.matrix2numpy(self.gbl_stiff, dtype=float)
+        new_load = sy.matrix2numpy(self.gbl_load, dtype=float)
 
-        new_omega = (self.gbl_stiff ** -1) * self.gbl_load
+        new_omega =  np.linalg.solve(new_stiff, new_load)
 
         self.gbl_omega = new_omega
         print(self.gbl_omega)
 
-    def plot_result(self):
-        pass
+    def plot_results(self):
+        if self.gbl_omega is None:
+            self.solve_omega()
+
+        x = np.zeros(self.num_nodes)
+        y = np.zeros(self.num_nodes)
+        z = self.gbl_omega.T
+        for i in self.nodes.keys():
+            x[i] = self.nodes[i].x
+            y[i] = self.nodes[i].y
+
+        xi, yi = np.linspace(x.min(), x.max(), 100), np.linspace(y.min(), y.max(), 100)
+        xi, yi = np.meshgrid(xi, yi)
+
+        rbf = sc.interpolate.Rbf(x, y, z, function='gaussian')
+        zi = rbf(xi, yi)
+
+        plt.imshow(zi, vmin=z.min(), vmax=z.max(), origin='lower',
+                   extent=[x.min(), x.max(), y.min(), y.max()],  cmap=plt.get_cmap('plasma'))
+        plt.scatter(x, y, c=z, cmap=plt.get_cmap('plasma'))
+        plt.colorbar()
+        plt.show()

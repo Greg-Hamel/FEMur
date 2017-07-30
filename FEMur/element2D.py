@@ -3,6 +3,7 @@ import sympy as sy
 import numpy as np
 import scipy as sc
 import matplotlib.pyplot as plt
+from math import ceil
 
 class Element2D(Element):
     'Defines the Planar Elements with its nodes and shape functions'
@@ -16,7 +17,7 @@ class Element2D(Element):
 
         self.nodes = {}
         for i in range(self.num_nodes):
-            self.nodes[str(i)] = node_table[i]
+            self.nodes[i] = node_table[i]
 
         self.x_coord = []  # Creates uni-column matrix for x_coords of nodes
         for i in self.nodes.keys():
@@ -47,11 +48,9 @@ class Element2D(Element):
         nodes_str = f''
         for i in range(self.num_nodes):
             if nodes_str == '':
-                key = str(i)
-                nodes_str = f'{self.nodes[key].number}'
+                nodes_str = f'{self.nodes[i].number}'
             else:
-                key = str(i)
-                nodes_str = nodes_str + f', {self.nodes[key].number}'
+                nodes_str = nodes_str + f', {self.nodes[i].number}'
         output_str = f'Element({self.number}) is composed of Nodes({nodes_str})'
         return output_str
 
@@ -69,6 +68,26 @@ class Element2D(Element):
 
     def provide_de(self, de):
         self.de = de
+
+    def get_npg(self):
+        '''
+        returns the number of gauss point to be used for the exact numerical
+        integration of the order specified using the rule 'p <= 2n + 1' for all
+        line element or the next higher value in the 'npg_list' of the element.
+        '''
+
+        order = len(self.p_ref)
+        npg = ceil((order - 1)/ 2)
+
+        if self.e_type == 'L' and npg == 1:
+            npg = 2
+
+        if npg in self.npg_list:
+            return npg
+        else:
+            for i in self.npg_list:
+                if i > npg:
+                    return i
 
     def p_function_ref(self, eval_coordinates):
         # 'eval_coordinates' is a table with [xi_coord, eta_coord]
@@ -137,18 +156,17 @@ class Element2D(Element):
         y_coord = 0
 
         for i in range(self.num_nodes):
-            j = str(i)
-            x_coord = x_coord + (self.nodes[j].x * self.Ne_ref[i])
-            y_coord = y_coord + (self.nodes[j].y * self.Ne_ref[i])
+            x_coord = x_coord + (self.nodes[i].x * self.Ne_ref[i])
+            y_coord = y_coord + (self.nodes[i].y * self.Ne_ref[i])
 
         for i in sy.preorder_traversal(x_coord):
-            if isinstance(i, sy.Float) and abs(i) < 1e-14:
+            if isinstance(i, sy.Float) and abs(i) < 1e-10:
                 x_coord = x_coord.subs(i, round(i, 1))
             elif isinstance(i, sy.Float):
                 x_coord = x_coord.subs(i, round(i, 15))
 
         for i in sy.preorder_traversal(y_coord):
-            if isinstance(i, sy.Float) and abs(i) < 1e-14:
+            if isinstance(i, sy.Float) and abs(i) < 1e-10:
                 y_coord = y_coord.subs(i, round(i, 1))
             elif isinstance(i, sy.Float):
                 y_coord = y_coord.subs(i, round(i, 15))
@@ -169,12 +187,17 @@ class Element2D(Element):
         if self.x_coord is None or self.y_coord is None:
             self.get_xy_ref()
 
-        jacobien = sy.zeros(2)
+        if self.e_type == 'L':
+            # Line element does not have an area, using length instead.
+            jacobien = self.length / 2
 
-        jacobien[0, 0] = sy.diff(self.x_coord, xi)
-        jacobien[0, 1] = sy.diff(self.y_coord, xi)
-        jacobien[1, 0] = sy.diff(self.x_coord, eta)
-        jacobien[1, 1] = sy.diff(self.y_coord, eta)
+        elif self.e_type == 'T' or self.e_type == 'Q':
+            jacobien = sy.zeros(2)
+
+            jacobien[0, 0] = sy.diff(self.x_coord, xi)
+            jacobien[0, 1] = sy.diff(self.y_coord, xi)
+            jacobien[1, 0] = sy.diff(self.x_coord, eta)
+            jacobien[1, 1] = sy.diff(self.y_coord, eta)
 
         self.Je = jacobien
 
@@ -184,14 +207,13 @@ class Element2D(Element):
             self.get_Je()
 
         if self.e_type == 'L':
-            # Line element does not have an area, using length instead.
-            detJe = self.length / 2
+            # Determinant of a 1x1 matrix is the only number in the matrix
+            detJe = self.Je
         else:
             detJe = self.Je.det()
 
         for i in sy.preorder_traversal(detJe):
-            if isinstance(i, sy.Float) and abs(i) < 1e-13:
-                print('yep')
+            if isinstance(i, sy.Float) and abs(i) < 1e-10:
                 detJe = detJe.subs(i, round(i, 1))
 
         if detJe <= 0:
@@ -207,11 +229,6 @@ class Element2D(Element):
             self.get_Ne_ref()
 
         GN_ref = sy.Matrix([sy.diff(self.Ne_ref, xi),sy.diff(self.Ne_ref, eta)])
-
-        for i in range(2):
-            for j in range(self.num_nodes):
-                GN_ref[i, j] = GN_ref[i, j].subs([(xi, self.xi_ref[j]),
-                                                  (eta, self.eta_ref[j])])
 
         self.GN_ref = GN_ref
 
@@ -248,7 +265,7 @@ class Element2D(Element):
             trial = self.Ne_ref * self.de
             trial2 = trial
             for i in sy.preorder_traversal(trial):
-                if isinstance(i, sy.Float) and abs(i) < 1e-14:
+                if isinstance(i, sy.Float) and abs(i) < 1e-10:
                     trial2 = trial2.subs(i, round(i, 1))
 
             self.trial = trial2
@@ -264,7 +281,7 @@ class Element2D(Element):
             trial = self.Be * self.de
             trial2 = trial
             for i in sy.preorder_traversal(trial):
-                if isinstance(i, sy.Float) and abs(i) < 1e-14:
+                if isinstance(i, sy.Float) and abs(i) < 1e-10:
                     trial2 = trial2.subs(i, round(i, 1))
 
             self.trial_prime = trial2
@@ -285,40 +302,42 @@ class Element2D(Element):
 
         xi, eta = sy.symbols('xi eta')
 
-        limits = {
-            'L': {'xi': [-1, 1]},
-            'Q': {'xi': [-1, 1], 'eta': [-1, 1]},
-            'T': {'xi': [0, 1-eta], 'eta': [0, 1]}
-        }
 
-        if self.e_type == 'L':
-            new_M = sy.Matrix(sy.integrate(m,(xi,
-                                    limits[self.e_type]['xi'][0],
-                                    limits[self.e_type]['xi'][1]
-                                   )
-                                ))
 
-        elif self.e_type in limits.keys():
-            # Double integration (1st - d'xi', 2nd - d'eta')
-            new_M = sy.Matrix(sy.integrate(sy.integrate(m,
-                                              (xi,
-                                               limits[self.e_type]['xi'][0],
-                                               limits[self.e_type]['xi'][1]
-                                              )
-                                             ),
-                                 (eta,
-                                  limits[self.e_type]['eta'][0],
-                                  limits[self.e_type]['eta'][1])
-                                ))
-
-        # Check for epsilon values. (Float for zero)
-        M, N = new_M.shape # Find the length and width of Matrix
-        for i in range(M):
-            for j in range(N):
-                if abs(new_M[i, j]) < 1e-14 and abs(new_M[i, j]) != 0:
-                    new_M[i, j] = 0
-
-        return new_M * self.detJe
+        # limits = {
+        #     'L': {'xi': [-1, 1]},
+        #     'Q': {'xi': [-1, 1], 'eta': [-1, 1]},
+        #     'T': {'xi': [0, 1-eta], 'eta': [0, 1]}
+        # }
+        #
+        # if self.e_type == 'L':
+        #     new_M = sy.Matrix(sy.integrate(m,(xi,
+        #                             limits[self.e_type]['xi'][0],
+        #                             limits[self.e_type]['xi'][1]
+        #                            )
+        #                         ))
+        #
+        # elif self.e_type in limits.keys():
+        #     # Double integration (1st - d'xi', 2nd - d'eta')
+        #     new_M = sy.Matrix(sy.integrate(sy.integrate(m,
+        #                                       (xi,
+        #                                        limits[self.e_type]['xi'][0],
+        #                                        limits[self.e_type]['xi'][1]
+        #                                       )
+        #                                      ),
+        #                          (eta,
+        #                           limits[self.e_type]['eta'][0],
+        #                           limits[self.e_type]['eta'][1])
+        #                         ))
+        #
+        # # Check for epsilon values. (Float for zero)
+        # M, N = new_M.shape # Find the length and width of Matrix
+        # for i in range(M):
+        #     for j in range(N):
+        #         if abs(new_M[i, j]) < 1e-10 and abs(new_M[i, j]) != 0:
+        #             new_M[i, j] = 0
+        #
+        # return new_M * self.detJe
 
 
 class Point1(Element2D):
@@ -326,8 +345,7 @@ class Point1(Element2D):
     Ne_ref = None
 
     def __init__(self, node, index):
-        xi = sy.symbols('xi')
-        eta = sy.symbols('eta')
+        xi, eta = sy.symbols('xi eta')
         Element2D.__init__(self, "P", node, index)
         self.p_ref = sy.Matrix([1.0])
         self.xi_ref = sy.Matrix([0.0])
@@ -362,25 +380,18 @@ class Line(Element2D):
     def __init__(self, node_table, index, using_directly=None):
         Element2D.__init__(self, "L", node_table, index)
         self.length = self.get_length()
+        self.npg_list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
     def get_length(self):
 
-        length = (((self.nodes['0'].x - self.nodes[str(self.num_nodes - 1)].x)
-                 ** 2 + (self.nodes['0'].y - self.nodes[str(self.num_nodes -
-                 1)].y) ** 2) ** 0.5)
+        length = (((self.nodes[0].x - self.nodes[self.num_nodes - 1].x)
+                 ** 2 + (self.nodes[0].y - self.nodes[self.num_nodes -
+                 1].y) ** 2) ** 0.5)
 
         return length
 
-    def solve_heat_stiff(self):
-        '''
-        Get Heat Stiffness Matrix for Cauchy condition in Sympy format.
-        Size: [Num_node x Num_node]
-
-        'h' is the convection factor
-
-        Returns the stiffness matrix for the element assuming convection on the
-        contour of the element.
-        '''
+    def get_C(self):
+        xi, eta = sy.symbols('xi eta')
 
         if self.Ne_ref is None:
             self.get_Ne_ref()
@@ -388,33 +399,17 @@ class Line(Element2D):
         if self.detJe is None:
             self.get_detJe()
 
-        K_e = self.h * self.integrate_domain(self.Ne_ref.T * self.Ne_ref)
+        K_e = np.zeros((self.num_nodes, self.num_nodes))
+        F_e = np.zeros((self.num_nodes, 1))
+
+        coord, w = self.get_gauss() # coordinates and weight for gauss points
+
+        for i in range(self.npg):
+            N = self.Ne_ref.subs(xi, coord[i])
+            K_e = K_e + (self.detJe * w[i] * N.T * N * self.h)
+            F_e = F_e + (self.detJe * w[i] * self.h * self.t_ext * N.T)
+
         self.K_e = K_e
-
-    def solve_heat_load(self):
-        '''
-        Get Heat Load Vector for Cauchy condition in Sympy format.
-        Size: [Num_node x Num_node]
-
-        'h' is the convection factor
-        't_ext' is the external temperature
-
-        Returns the heat load vector for the element assuming convection on the
-        contour of the element.
-        '''
-        if self.Ne_ref is None:
-            self.get_Ne_ref()
-
-        if self.detJe is None:
-            self.get_detJe()
-
-        sy.pprint(self.Ne_ref.T)
-        sy.pprint(self.integrate_domain(self.Ne_ref.T))
-        F_e = (self.h * self.t_ext
-               * self.integrate_domain(self.Ne_ref.T))
-
-        sy.pprint(F_e)
-
         self.F_e = F_e
 
 
@@ -432,6 +427,7 @@ class Line2(Line):
         self.num_dots = len(self.xi_ref)
         self.shape = sy.zeros(self.num_dots)
         self.Ne_ref = None
+        self.npg = self.get_npg() # n-Gauss point for numerical integration
 
         if self.num_nodes != self.num_dots:
             raise ValueError(f'Number of nodes provided is {self.num_nodes},'
@@ -468,6 +464,7 @@ class Line3(Line):
         self.num_dots = len(self.xi_ref)
         self.shape = sy.zeros(self.num_dots)
         self.Ne_ref = None
+        self.npg = self.get_npg() # n-Gauss point for numerical integration
 
         if self.num_nodes != self.num_dots:
             raise ValueError(f'Number of nodes provided is {self.num_nodes},'
@@ -497,61 +494,60 @@ class Shell(Element2D):
     def __init__(self, node_table, index, using_directly=None):
         Element2D.__init__(self, "T", node_table, index)
 
-    def solve_heat_stiff(self):
-        '''
-        Get Heat Stiffness Matrix in Sympy format.
-        Size: [Num_node x Num_node]
+    def get_jacob(self, dN):
+        jacob = sy.zeros(2)
 
-        'D' is the [D] Matrix containing the stiffness factors
-        'h' is the convection factor
-        'e' is the plate thickness
+        for i in range(self.num_nodes):
+            jacob[0, 0] += dN[0, i]*self.nodes[i].x
+            jacob[0, 1] += dN[0, i]*self.nodes[i].y
+            jacob[1, 0] += dN[1, i]*self.nodes[i].x
+            jacob[1, 1] += dN[1, i]*self.nodes[i].y
 
-        Returns the stiffness matrix for the element assuming diffusion in the
-        plane direction and convection through both sides of the surface
-        created by the element.
-        '''
+        return jacob
 
-        if self.Be is None:
-            self.get_Be()
+    def get_C(self):
+        xi, eta = sy.symbols('xi eta')
 
-        if self.detJe is None:
-            self.get_detJe()
+        if self.Ne_ref is None:
+            self.get_Ne_ref()
 
-        # print('Be.T:', self.Be.T.shape)
-        # print('D:', self.D.shape)
-        # print('Be:', self.Be.shape)
+        sy.pprint(self.Ne_ref)
 
-        K_e = (self.integrate_domain(self.Be.T * self.D * self.Be)
-               + (2 * self.h * self.integrate_domain(self.Ne_ref.T
-                                                     * self.Ne_ref) / self.e)
-              )
+        if self.GN_ref is None:
+            self.get_GN_ref()
 
-        self.K_e = K_e
+        sy.pprint(self.GN_ref)
 
-    def solve_heat_load(self):
-        '''
-        Get Heat Load Vector in Sympy format.
-        Size: [Num_node x Num_node]
+        K_e = np.zeros((self.num_nodes, self.num_nodes))
+        F_e = np.zeros((self.num_nodes, 1))
 
-        'h' is the convection factor
-        'e' is the plate thickness
-        't_ext' is the external temperature
+        coord, w = self.get_gauss() # coordinates and weight for gauss points
 
-        Returns the head load vector for the element assuming convection
-        through both sides of the surface created by the element.
-        '''
-        F_e = ((2 * self.h * self.t_ext / self.e)
-               * self.integrate_domain(self.Ne_ref.T))
+        for i in range(self.npg):
+            N = self.Ne_ref.subs([(xi, coord[i, 0]), (eta, coord[i, 1])])
+            dN = self.GN_ref.subs([(xi, coord[i, 0]), (eta, coord[i, 1])])
 
-        sy.pprint(F_e)
-        print(self.detJe)
-        self.F_e = F_e
+            Be = sy.zeros(2, self.num_nodes)
+            jacobien = self.get_jacob(dN)
+
+            detJ = jacobien.det()
+
+            Be = jacobien.inv() * dN
+
+            K_e = K_e + (detJ * w[i] * ((Be.T * self.D * Be) + (2 *  N.T * N * self.h / self.e)))
+            # K_e = K_e + (self.detJe * w[i] * ((Be.T * self.D * Be) + (2 * N.T * N * self.h)))
+            F_e = F_e + (detJ * w[i] * 2 * self.h * self.t_ext * N.T / self.e)
+            # F_e = F_e + (self.detJe * w[i] * 2 * self.h * self.t_ext * N.T)
+
+            self.K_e = K_e
+            self.F_e = F_e
 
 
 class Triangular(Shell):
     'Common class for all Triangular 2D elements'
     def __init__(self, node_table, index, using_directly=None):
         Shell.__init__(self, node_table, index)
+        self.npg_list = [1, 3, 4, 6, 7, 12]
         # If using Triangular Directly, define self.p, self.xi_ref,
         # self.eta_ref, self.num_dots in your script.
 
@@ -571,6 +567,7 @@ class Tria3(Triangular):
         self.num_dots = len(self.xi_ref)
         self.shape = sy.zeros(self.num_dots)
         self.Ne_ref = None
+        self.npg = self.get_npg() # n-Gauss point for numerical integration
 
         if self.num_nodes != self.num_dots:
             raise ValueError(f'Number of nodes provided is {self.num_nodes},'
@@ -608,6 +605,7 @@ class Tria6(Triangular):
         self.num_dots = len(self.xi_ref)
         self.shape = sy.zeros(self.num_dots)
         self.Ne_ref = None
+        self.npg = self.get_npg() # n-Gauss point for numerical integration
 
         if self.num_nodes != self.num_dots:
             raise ValueError(f'Number of nodes provided is {self.num_nodes},'
@@ -645,6 +643,7 @@ class CTria6(Triangular):
         self.num_dots = len(self.xi_ref)
         self.shape = sy.zeros(self.num_dots)
         self.Ne_ref = None
+        self.npg = self.get_npg() # n-Gauss point for numerical integration
 
         if self.num_nodes != self.num_dots:
             raise ValueError(f'Number of nodes provided is {self.num_nodes},'
@@ -671,6 +670,7 @@ class Quad(Shell):
     'Common class for all Quad 2D elements'
     def __init__(self, node_table, index):
         Shell.__init__(self, node_table, index)
+        self.npg_list = [1, 4, 5, 8, 9]
         # If using Triangular Directly, define self.p, self.xi_ref,
         # self.eta_ref, self.num_dots in your script.
 
@@ -689,6 +689,7 @@ class Quad4(Quad):
         self.num_dots = len(self.xi_ref)
         self.shape = sy.zeros(self.num_dots)
         self.Ne_ref = None
+        self.npg = self.get_npg() # n-Gauss point for numerical integration
 
         if self.num_nodes != self.num_dots:
             raise ValueError(f'Number of nodes provided is {self.num_nodes},'
@@ -719,12 +720,14 @@ class Quad8(Quad):
         eta = sy.symbols('eta')
         xi = sy.symbols('xi')
         Triangular.__init__(self, node_table, index)
-        self.p_ref = sy.Matrix([1, xi, eta, xi * eta, xi ** 2, eta ** 2, xi ** 3, eta ** 3])
-        self.xi_ref = sy.Matrix([-1.0, 0.0, 1.0, 1.0, 1.0, 0.0, -1.0, -1.0])
-        self.eta_ref = sy.Matrix([-1.0, -1.0, -1.0, 0.0, 1.0, 1.0, 1.0, 0.0])
+        self.p_ref = sy.Matrix([1, xi, eta, xi * eta, xi ** 2, eta ** 2,
+                                xi ** 3, eta ** 3])
+        self.xi_ref = sy.Matrix([-1.0, 1.0, 1.0, -1.0, 0.0, 1.0, 0.0, -1.0])
+        self.eta_ref = sy.Matrix([-1.0, -1.0, 1.0, 1.0, -1.0, 0.0, 1.0, 0.0])
         self.num_dots = len(self.xi_ref)
         self.shape = sy.zeros(self.num_dots)
         self.Ne_ref = None
+        self.npg = self.get_npg() # n-Gauss point for numerical integration
 
         if self.num_nodes != self.num_dots:
             raise ValueError(f'Number of nodes provided is {self.num_nodes},'
@@ -755,12 +758,16 @@ class Quad9(Quad):
         eta = sy.symbols('eta')
         xi = sy.symbols('xi')
         Triangular.__init__(self, node_table, index)
-        self.p_ref = sy.Matrix([1, xi, eta, xi * eta, xi ** 2, eta ** 2, xi ** 3, eta ** 3, (xi ** 2) * (eta ** 2)])
-        self.xi_ref = sy.Matrix([-1.0, 0.0, 1.0, 1.0, 1.0, 0.0, -1.0, -1.0])
-        self.eta_ref = sy.Matrix([-1.0, -1.0, -1.0, 0.0, 1.0, 1.0, 1.0, 0.0])
+        self.p_ref = sy.Matrix([1, xi, eta, xi * eta, xi ** 2, eta ** 2,
+                                xi ** 3, eta ** 3, (xi ** 2) * (eta ** 2)])
+        self.xi_ref = sy.Matrix([-1.0, 1.0, 1.0, -1.0,
+                                 0.0, 1.0, 0.0, -1.0, 0.0])
+        self.eta_ref = sy.Matrix([-1.0, -1.0, 1.0, 1.0,
+                                 -1.0, 0.0, 1.0, 0.0, 0.0])
         self.num_dots = len(self.xi_ref)
         self.shape = sy.zeros(self.num_dots)
         self.Ne_ref = None
+        self.npg = self.get_npg() # n-Gauss point for numerical integration
 
         if self.num_nodes != self.num_dots:
             raise ValueError(f'Number of nodes provided is {self.num_nodes},'
