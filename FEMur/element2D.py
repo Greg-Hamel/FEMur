@@ -69,18 +69,26 @@ class Element2D(Element):
     def provide_de(self, de):
         self.de = de
 
-    def get_npg(self):
+    def get_npg(self, func = None):
         '''
         returns the number of gauss point to be used for the exact numerical
         integration of the order specified using the rule 'p <= 2n + 1' for all
         line element or the next higher value in the 'npg_list' of the element.
         '''
+        x, y = sy.symbols('x y')
 
-        order = len(self.p_ref)
-        npg = ceil((order - 1)/ 2)
-
-        if self.e_type == 'L' and npg == 1:
-            npg = 2
+        if func is None:
+            order = 0
+            for i in self.p_ref:
+                if isinstance(i, sy.Float):
+                    pass
+                else:
+                    p_order = sy.degree(i)
+                    if p_order > order:
+                        order = p_order
+            npg = ceil((order + 1)/ 2)  # from Belytchko p. 88
+        else:
+            npg= ceil((sy.degree(func, gen=x) + sy.degree(func, gen=y) + 1)/ 2)
 
         if npg in self.npg_list:
             return npg
@@ -105,23 +113,46 @@ class Element2D(Element):
 
         return returned_p
 
-    def get_Me_ref(self):
-        # Gets the M_e Matrix in the xi and eta domain
+    def get_Me_ref(self, refs=None):
+        '''
+        Get M_e matrix in the xi and eta domain.
+
+        'refs' - can be provided as a list of lists [xi_ref, eta_ref].
+
+        If 'refs' is used, the output will be returned.
+        '''
         Me = sy.zeros(self.num_nodes)
 
-        for i in range(self.num_nodes):
-            inp = self.p_function_ref([self.xi_ref[i],
-                                       self.eta_ref[i]])
-            Me[i, :] = inp
+        if refs is not None:
+            for i in range(len(refs[0])):
+                inp = self.p_function_ref([refs[0][i],
+                                           refs[1][i]])
+                Me[i, :] = inp
 
-        self.Me_ref = Me
+            return Me
 
-    def get_inv_Me_ref(self):
-        # Get the inverse of the M_e Matrix
-        if self.Me_ref is None:
+        else:
+            for i in range(self.num_nodes):
+                inp = self.p_function_ref([self.xi_ref[i],
+                                           self.eta_ref[i]])
+                Me[i, :] = inp
+
+            self.Me_ref = Me
+
+    def get_inv_Me_ref(self, refs=None):
+        '''
+        Get Inverse of M_e matrix
+
+        'refs' - can be provided as a list of lists [xi_ref, eta_ref].
+
+        If 'refs' is used, the output will be returned.
+        '''
+        if refs is not None:
+            return self.get_Me_ref(refs=refs).inv()
+
+        elif self.Me_ref is None:
             self.get_Me_ref()
-
-        self.inv_Me_ref = self.Me_ref.inv()
+            self.inv_Me_ref = self.Me_ref.inv()
 
     def validate_Ne_ref(self):
         # Validate the N_e matrix by providing nodes 'x' values. In order for
