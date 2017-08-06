@@ -3,6 +3,7 @@ import sympy as sy
 import numpy as np
 import scipy as sc
 import matplotlib.pyplot as plt
+import matplotlib.tri as tri
 import scipy.interpolate
 from math import ceil
 
@@ -338,8 +339,6 @@ class Mesh2D(Mesh):
         new_gbl_stiff = self.gbl_stiff
         new_gbl_load = self.gbl_load
 
-        sy.pprint(self.gbl_stiff)
-        sy.pprint(self.gbl_load)
         print('\n# IMPOSING DIRICHLET #\n')
 
 
@@ -386,7 +385,7 @@ class Mesh2D(Mesh):
         if k_y is None:
             k_y = k_x
         if k_xy is None:
-            k_xy = k_x
+            k_xy = 0
 
         self.D = sy.Matrix([[k_x, k_xy], [k_xy, k_y]])
 
@@ -397,6 +396,7 @@ class Mesh2D(Mesh):
         if self.dirichlet_applied is False:
             self.update_stiff_load_dirichlet()
 
+        sy.pprint(self.elements[4].K_e)
         sy.pprint(self.gbl_stiff)
         sy.pprint(self.gbl_load)
         print('\n# SOLVING FOR OMEGA #\n')
@@ -423,11 +423,20 @@ class Mesh2D(Mesh):
         xi, yi = np.linspace(x.min(), x.max(), 100), np.linspace(y.min(), y.max(), 100)
         xi, yi = np.meshgrid(xi, yi)
 
-        rbf = sc.interpolate.Rbf(x, y, z, function='gaussian')
+        trias = np.zeros((self.num_elem, 3))
+        for i in self.elements.keys():
+            if self.elements[i].num_nodes < 6:
+                pass
+            else:
+                for j in range(3):
+                    trias[i, j] = self.elements[i].nodes[j].index
+
+        rbf = sc.interpolate.Rbf(x, y, z, function='linear')
         zi = rbf(xi, yi)
 
         plt.imshow(zi, vmin=z.min(), vmax=z.max(), origin='lower',
                    extent=[x.min(), x.max(), y.min(), y.max()],  cmap=plt.get_cmap('plasma'))
         plt.scatter(x, y, c=z, cmap=plt.get_cmap('plasma'))
         plt.colorbar()
+        plt.triplot(x, y, trias, 'o-', ms=3, lw=1.0, color='black')
         plt.show()
