@@ -328,59 +328,6 @@ class Element2D(Element):
 
             self.trial_prime = trial2
 
-    def integrate_domain(self, m):
-        '''
-        Returns domain_integration of the provided matrix.
-
-        'm' - Matrix to integrate_domain
-
-        Automatically asigns limits of integration based on the element type.
-
-        This integration takes into account that the request is for an
-        integration over the real domain (x,y). It will automatically convert
-        the element's integration into the reference domain (xi, eta) and
-        multiply by the Jacobien matrix automatically.
-        '''
-
-        xi, eta = sy.symbols('xi eta')
-
-
-
-        # limits = {
-        #     'L': {'xi': [-1, 1]},
-        #     'Q': {'xi': [-1, 1], 'eta': [-1, 1]},
-        #     'T': {'xi': [0, 1-eta], 'eta': [0, 1]}
-        # }
-        #
-        # if self.e_type == 'L':
-        #     new_M = sy.Matrix(sy.integrate(m,(xi,
-        #                             limits[self.e_type]['xi'][0],
-        #                             limits[self.e_type]['xi'][1]
-        #                            )
-        #                         ))
-        #
-        # elif self.e_type in limits.keys():
-        #     # Double integration (1st - d'xi', 2nd - d'eta')
-        #     new_M = sy.Matrix(sy.integrate(sy.integrate(m,
-        #                                       (xi,
-        #                                        limits[self.e_type]['xi'][0],
-        #                                        limits[self.e_type]['xi'][1]
-        #                                       )
-        #                                      ),
-        #                          (eta,
-        #                           limits[self.e_type]['eta'][0],
-        #                           limits[self.e_type]['eta'][1])
-        #                         ))
-        #
-        # # Check for epsilon values. (Float for zero)
-        # M, N = new_M.shape # Find the length and width of Matrix
-        # for i in range(M):
-        #     for j in range(N):
-        #         if abs(new_M[i, j]) < 1e-10 and abs(new_M[i, j]) != 0:
-        #             new_M[i, j] = 0
-        #
-        # return new_M * self.detJe
-
 
 class Point1(Element2D):
     'Class for all single-node elements.'
