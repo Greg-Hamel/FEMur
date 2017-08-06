@@ -163,9 +163,17 @@ class Element2D(Element):
 
         for i in range(self.num_nodes):
             for j in range(self.num_nodes):
-                validation_matrix[i, j] = self.Ne_ref[i].subs(
+                i_j = round(self.Ne_ref[i].subs(
                     [(xi, self.xi_ref[j]), (eta, self.eta_ref[j])]
-                    )
+                    ), 4)
+
+                if abs(i_j) < 1e-13:
+                    i_j = 0
+
+                if isinstance(i_j, sy.Float):
+                    i_j = int(i_j)
+
+                validation_matrix[i, j] = i_j
 
         if validation_matrix == sy.eye(self.num_nodes):
             return True # if the validation matrix is the identity matrix
@@ -247,8 +255,11 @@ class Element2D(Element):
             if isinstance(i, sy.Float) and abs(i) < 1e-10:
                 detJe = detJe.subs(i, round(i, 1))
 
-        if detJe <= 0:
-            print('WARNING: Jacobien Matrix of an Element is non-positive.')
+        try:
+            if detJe <= 0:
+                print('WARNING: Jacobien Matrix of an Element is non-positive.')
+        except:
+            pass
 
         self.detJe = detJe
 
