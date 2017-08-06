@@ -489,10 +489,49 @@ class Line3(Line):
             self.Ne_ref = Line3.Ne_ref
 
 
+class Line4(Line):
+    'Class for 2D 2nd order line elements with 3 nodes.'
+    Ne_ref = None
+
+    def __init__(self, node_table, index):
+        xi = sy.symbols('xi')
+        eta = sy.symbols('eta')
+        Line.__init__(self, node_table, index)
+        self.p_ref = sy.Matrix([1.0, xi, xi ** 2, xi ** 3])
+        self.xi_ref = sy.Matrix([-1.0, 1.0, -1/6, 1/6])
+        self.eta_ref = sy.Matrix([0.0, 0.0, 0.0, 0.0])
+        self.num_dots = len(self.xi_ref)
+        self.shape = sy.zeros(self.num_dots)
+        self.Ne_ref = None
+        self.npg = self.get_npg() # n-Gauss point for numerical integration
+
+        if self.num_nodes != self.num_dots:
+            raise ValueError(f'Number of nodes provided is {self.num_nodes},'
+                             f' {self.num_dots} expected.')
+
+    def __name__(self):
+        return "4-node 3nd-order line"
+
+    def get_Ne_ref(self):
+        '''
+        Get the shape functions for the element in the xi and eta domain.
+        '''
+        if Line4.Ne_ref == None:
+            if self.p_ref is None:
+                self.get_p_ref()
+            if self.Me_ref is None:
+                self.get_inv_Me_ref()
+
+            Line4.Ne_ref = self.p_ref.T * self.inv_Me_ref
+            self.Ne_ref = Line4.Ne_ref
+        else:
+            self.Ne_ref = Line4.Ne_ref
+
+
 class Shell(Element2D):
     'Common class for all shell 2D elements types'
-    def __init__(self, node_table, index, using_directly=None):
-        Element2D.__init__(self, "T", node_table, index)
+    def __init__(self, e_type, node_table, index, using_directly=None):
+        Element2D.__init__(self, e_type, node_table, index)
 
     def get_jacob(self, dN):
         jacob = sy.zeros(2)
