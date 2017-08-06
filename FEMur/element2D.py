@@ -231,12 +231,7 @@ class Element2D(Element):
             jacobien = self.length / 2
 
         elif self.e_type == 'T' or self.e_type == 'Q':
-            jacobien = sy.zeros(2)
-
-            jacobien[0, 0] = sy.diff(self.x_coord, xi)
-            jacobien[0, 1] = sy.diff(self.y_coord, xi)
-            jacobien[1, 0] = sy.diff(self.x_coord, eta)
-            jacobien[1, 1] = sy.diff(self.y_coord, eta)
+            self.get_jacob()
 
         self.Je = jacobien
 
@@ -341,7 +336,6 @@ class Point1(Element2D):
         self.eta_ref = sy.Matrix([0.0])
         self.num_dots = len(self.xi_ref)
         self.shape = sy.zeros(self.num_dots)
-        self.Ne_ref = None
 
         if self.num_nodes != self.num_dots:
             raise ValueError(f'Number of nodes provided is {self.num_nodes},'
@@ -366,7 +360,9 @@ class Point1(Element2D):
 
 class Line(Element2D):
     'Common class for all Line 2D elements.'
+
     def __init__(self, node_table, index, using_directly=None):
+        xi, eta = sy.symbols('xi eta')
         Element2D.__init__(self, "L", node_table, index)
         self.length = self.get_length()
         self.npg_list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
@@ -388,6 +384,9 @@ class Line(Element2D):
         if self.detJe is None:
             self.get_detJe()
 
+        if self.detJe <=0:
+            raise ValueError("Det is less or equal to zero!!")
+
         K_e = np.zeros((self.num_nodes, self.num_nodes))
         F_e = np.zeros((self.num_nodes, 1))
 
@@ -397,6 +396,8 @@ class Line(Element2D):
             N = self.Ne_ref.subs(xi, coord[i])
             K_e = K_e + (self.detJe * w[i] * N.T * N * self.h)
             F_e = F_e + (self.detJe * w[i] * self.h * self.t_ext * N.T)
+            # K_e = K_e + (self.detJe * w[i] * sy.zeros(self.num_nodes) * self.h)
+            # F_e = F_e + (self.detJe * w[i] * self.h * self.t_ext * sy.zeros(self.num_nodes, 1))
 
         self.K_e = K_e
         self.F_e = F_e
@@ -539,12 +540,8 @@ class Shell(Element2D):
         if self.Ne_ref is None:
             self.get_Ne_ref()
 
-        sy.pprint(self.Ne_ref)
-
         if self.GN_ref is None:
             self.get_GN_ref()
-
-        sy.pprint(self.GN_ref)
 
         K_e = np.zeros((self.num_nodes, self.num_nodes))
         F_e = np.zeros((self.num_nodes, 1))
@@ -552,29 +549,46 @@ class Shell(Element2D):
         coord, w = self.get_gauss() # coordinates and weight for gauss points
 
         for i in range(self.npg):
+            # sy.pprint(self.Ne_ref)
             N = self.Ne_ref.subs([(xi, coord[i, 0]), (eta, coord[i, 1])])
+            # print('N')
+            # sy.pprint(N)
             dN = self.GN_ref.subs([(xi, coord[i, 0]), (eta, coord[i, 1])])
-
-            Be = sy.zeros(2, self.num_nodes)
+            # print('GN')
+            # sy.pprint(dN)
             jacobien = self.get_jacob(dN)
+            # print('J')
+            # sy.pprint(jacobien)
 
             detJ = jacobien.det()
+            # print('detJe')
+            # print(detJ)
 
-            Be = jacobien.inv() * dN
+            if detJ <=0:
+                raise ValueError("Det is less or equal to zero!!")
 
-            K_e = K_e + (detJ * w[i] * ((Be.T * self.D * Be) + (2 *  N.T * N * self.h / self.e)))
-            # K_e = K_e + (self.detJe * w[i] * ((Be.T * self.D * Be) + (2 * N.T * N * self.h)))
-            F_e = F_e + (detJ * w[i] * 2 * self.h * self.t_ext * N.T / self.e)
-            # F_e = F_e + (self.detJe * w[i] * 2 * self.h * self.t_ext * N.T)
+            Be =  jacobien.inv() * dN
+            # print('Be')
+            # sy.pprint(Be)
+            print(self.D)
+            K_e += (detJ * w[i] * ((Be.T * self.D * Be) + (2 *  N.T * N * self.h / self.e)))
+            F_e += (detJ * w[i] * 2 * self.h * self.t_ext * N.T / self.e)
 
-            self.K_e = K_e
-            self.F_e = F_e
+        for i in range(len(F_e)):
+            if abs(F_e[i]) < 1e-9:
+                F_e[i] = 0.0
+
+        self.K_e = K_e
+        self.F_e = F_e
+
 
 
 class Triangular(Shell):
     'Common class for all Triangular 2D elements'
+
     def __init__(self, node_table, index, using_directly=None):
-        Shell.__init__(self, node_table, index)
+        xi, eta = sy.symbols('xi eta')
+        Shell.__init__(self, "T", node_table, index)
         self.npg_list = [1, 3, 4, 6, 7, 12]
         # If using Triangular Directly, define self.p, self.xi_ref,
         # self.eta_ref, self.num_dots in your script.
@@ -589,7 +603,7 @@ class Tria3(Triangular):
         eta = sy.symbols('eta')
 
         Triangular.__init__(self, node_table, index)
-        self.p_ref = sy.Matrix([1, xi, eta])
+        self.p_ref = sy.Matrix([1.0, xi, eta])
         self.xi_ref = sy.Matrix([0.0, 1.0, 0.0])
         self.eta_ref = sy.Matrix([0.0, 0.0, 1.0])
         self.num_dots = len(self.xi_ref)
@@ -627,7 +641,7 @@ class Tria6(Triangular):
         xi = sy.symbols('xi')
         Triangular.__init__(self, node_table, index)
 
-        self.p_ref = sy.Matrix([1, xi, eta, xi * eta, xi * xi, eta * eta])
+        self.p_ref = sy.Matrix([1.0, xi, eta, xi * eta, xi * xi, eta * eta])
         self.xi_ref = sy.Matrix([0.0, 1.0, 0.0, 0.5, 0.5, 0.0])
         self.eta_ref = sy.Matrix([0.0, 0.0, 1.0, 0.0, 0.5, 0.5])
         self.num_dots = len(self.xi_ref)
@@ -665,7 +679,7 @@ class CTria6(Triangular):
         xi = sy.symbols('xi')
         Triangular.__init__(self, node_table, index)
 
-        self.p_ref = sy.Matrix([1, xi, eta, xi * eta, xi * xi, eta * eta])
+        self.p_ref = sy.Matrix([1.0, xi, eta, xi * eta, xi * xi, eta * eta])
         self.xi_ref = sy.Matrix([0.0, 1.0, 0.0, 0.5, 0.5, 0.0])
         self.eta_ref = sy.Matrix([0.0, 0.0, 1.0, 0.0, 0.5, 0.5])
         self.num_dots = len(self.xi_ref)
@@ -696,8 +710,10 @@ class CTria6(Triangular):
 
 class Quad(Shell):
     'Common class for all Quad 2D elements'
+
     def __init__(self, node_table, index):
-        Shell.__init__(self, node_table, index)
+        xi, eta = sy.symbols('xi eta')
+        Shell.__init__(self, 'Q', node_table, index)
         self.npg_list = [1, 4, 5, 8, 9]
         # If using Triangular Directly, define self.p, self.xi_ref,
         # self.eta_ref, self.num_dots in your script.
@@ -708,10 +724,9 @@ class Quad4(Quad):
     Ne_ref = None
 
     def __init__(self, node_table, index):
-        eta = sy.symbols('eta')
-        xi = sy.symbols('xi')
-        Triangular.__init__(self, node_table, index)
-        self.p_ref = sy.Matrix([1, xi, eta, xi * eta])
+        xi, eta = sy.symbols('xi eta')
+        Quad.__init__(self, node_table, index)
+        self.p_ref = sy.Matrix([1.0, xi, eta, xi * eta])
         self.xi_ref = sy.Matrix([-1.0, 1.0, 1.0, -1.0])
         self.eta_ref = sy.Matrix([-1.0, -1.0, 1.0, 1.0])
         self.num_dots = len(self.xi_ref)
@@ -745,10 +760,9 @@ class Quad8(Quad):
     Ne_ref = None
 
     def __init__(self, node_table, index):
-        eta = sy.symbols('eta')
-        xi = sy.symbols('xi')
-        Triangular.__init__(self, node_table, index)
-        self.p_ref = sy.Matrix([1, xi, eta, xi * eta, xi ** 2, eta ** 2,
+        xi, eta = sy.symbols('xi eta')
+        Quad.__init__(self, node_table, index)
+        self.p_ref = sy.Matrix([1.0, xi, eta, xi * eta, xi ** 2, eta ** 2,
                                 xi ** 3, eta ** 3])
         self.xi_ref = sy.Matrix([-1.0, 1.0, 1.0, -1.0, 0.0, 1.0, 0.0, -1.0])
         self.eta_ref = sy.Matrix([-1.0, -1.0, 1.0, 1.0, -1.0, 0.0, 1.0, 0.0])
@@ -785,8 +799,8 @@ class Quad9(Quad):
     def __init__(self, node_table, index):
         eta = sy.symbols('eta')
         xi = sy.symbols('xi')
-        Triangular.__init__(self, node_table, index)
-        self.p_ref = sy.Matrix([1, xi, eta, xi * eta, xi ** 2, eta ** 2,
+        Quad.__init__(self, node_table, index)
+        self.p_ref = sy.Matrix([1.0, xi, eta, xi * eta, xi ** 2, eta ** 2,
                                 xi ** 3, eta ** 3, (xi ** 2) * (eta ** 2)])
         self.xi_ref = sy.Matrix([-1.0, 1.0, 1.0, -1.0,
                                  0.0, 1.0, 0.0, -1.0, 0.0])
