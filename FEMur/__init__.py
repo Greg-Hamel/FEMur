@@ -24,3 +24,4 @@ from FEMur.mesh import *
 from FEMur.mesh1D import *
 from FEMur.mesh2D import *
 from FEMur.mesh3D import *
+from FEMur.solver2D import *
