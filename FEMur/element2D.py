@@ -266,7 +266,15 @@ class Element2D(Element):
         if self.Ne_ref is None:
             self.get_Ne_ref()
 
-        GN_ref = sy.Matrix([sy.diff(self.Ne_ref, xi),sy.diff(self.Ne_ref, eta)])
+        if self.analysis_type == 'SSHeat':
+            GN_ref = sy.Matrix([sy.diff(self.Ne_ref, xi),
+                                sy.diff(self.Ne_ref, eta)])
+
+        elif self.analysis_type == 'SSMech':
+            GN_ref = sy.Matrix([sy.diff(self.Ne_ref[0, :], xi),
+                                sy.diff(self.Ne_ref[1, :], eta),
+                                (sy.diff(self.Ne_ref[0, :], eta
+                                 + sy.diff(self.Ne_ref[1, :], xi))])
 
         self.GN_ref = GN_ref
 
