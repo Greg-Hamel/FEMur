@@ -14,9 +14,8 @@ class Mesh2D(Mesh):
     This class will define import GMSH ASCII Mesh.
     """
 
-    def __init__(self, file_name, conditions):
+    def __init__(self, file_name):
         self.file_name = file_name
-        self.d = sy.Matrix(conditions)
         self.calculated = False #  Solving has not been completed yet.
         self.cauchy_applied = False
         self.dirichlet_applied = False
@@ -250,7 +249,7 @@ class Mesh2D(Mesh):
             self.get_Le_container()
 
         for i in self.elements.keys():
-            de[i] = self.Le_container[i] * self.d
+            de[i] = self.Le_container[i] * self.D
 
         self.de = de
 
