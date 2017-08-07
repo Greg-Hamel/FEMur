@@ -273,7 +273,7 @@ class Element2D(Element):
         elif self.analysis_type == 'SSMech':
             GN_ref = sy.Matrix([sy.diff(self.Ne_ref[0, :], xi),
                                 sy.diff(self.Ne_ref[1, :], eta),
-                                (sy.diff(self.Ne_ref[0, :], eta
+                                (sy.diff(self.Ne_ref[0, :], eta)
                                  + sy.diff(self.Ne_ref[1, :], xi))])
 
         self.GN_ref = GN_ref
