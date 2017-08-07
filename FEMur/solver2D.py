@@ -15,8 +15,9 @@ class Solver(object):
 
     Provides common initialization  to all child solver classes.
     '''
-    def __init__(self, meshfile):
+    def __init__(self, meshfile, analysis_type):
         self.meshfile = meshfile
+        self.analysis_type = analysis_type
         self.get_mesh()
 
         self.D = None
@@ -40,7 +41,7 @@ class Solver(object):
         except AttributeError:
             print('A mesh file has not been provided.')
             sys.exit(1)
-        self.mesh = Mesh2D(self.meshfile)
+        self.mesh = Mesh2D(self.meshfile, self.analysis_type)
         self.mesh.mesh()
 
     def solve(self):
@@ -113,7 +114,7 @@ class SteadyHeatSolver(Solver):
     2-dimensional steady state heat transfer solver.
     '''
     def __init__(self, meshfile):
-        Solver.__init__(self, meshfile)
+        Solver.__init__(self, meshfile, "SSHeat")
 
     def assemble_stiff_load(self):
         '''
@@ -249,4 +250,4 @@ class SteadyStructureSolver(Solver):
     2-dimensional steady state structure solver.
     '''
     def __init__(self, meshfile):
-        Solver.__init__(meshfile)
+        Solver.__init__(self, meshfile, "SSMech")

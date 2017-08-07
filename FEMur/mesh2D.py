@@ -14,8 +14,10 @@ class Mesh2D(Mesh):
     This class will define import GMSH ASCII Mesh.
     """
 
-    def __init__(self, file_name):
+    def __init__(self, file_name, analysis_type):
         self.file_name = file_name
+        self.analysis_type = analysis_type
+
         self.calculated = False #  Solving has not been completed yet.
         self.cauchy_applied = False
         self.dirichlet_applied = False
@@ -27,7 +29,6 @@ class Mesh2D(Mesh):
         self.nodal_distance = None
         self.Le_container = None
         self.de_container = None
-
 
     def __str__(self):
         if self.elements is None:
@@ -100,6 +101,7 @@ class Mesh2D(Mesh):
                 if len(line) == 1:
                     pass
                 else:
+                    element['analysis_type'] = self.analysis_type
                     element['num'] = int(line[0]) - 1  # number '1' -> index '0'
                     element['type'] = int(line[1])
                     element['tag_number'] = int(line[2])
@@ -116,38 +118,47 @@ class Mesh2D(Mesh):
                         element[i] = int(line[node_index_start + i]) - 1
                         node_table.append(self.nodes[element[i]])
 
+                    num = element['num']
                     if element['type'] == 1:
                         # 2-node Line Element
-                        self.elements[element['num']] = Line2(node_table,
-                                                              element['num'])
+                        self.elements[num] = Line2(node_table,
+                                                   num,
+                                                   element['analysis_type'])
                     elif element['type'] == 2:
                         # 3-node Triangle Element
-                        self.elements[element['num']] = Tria3(node_table,
-                                                              element['num'])
+                        self.elements[num] = Tria3(node_table,
+                                                   num,
+                                                   element['analysis_type'])
                     elif element['type'] == 3:
                         # 4-node Quad Element
-                        self.elements[element['num']] = Quad4(node_table,
-                                                              element['num'])
+                        self.elements[num] = Quad4(node_table,
+                                                   num,
+                                                   element['analysis_type'])
                     elif element['type'] == 8:
                         # 3-node 2nd-order Line Element
-                        self.elements[element['num']] = Line3(node_table,
-                                                              element['num'])
+                        self.elements[num] = Line3(node_table,
+                                                   num,
+                                                   element['analysis_type'])
                     elif element['type'] == 9:
                         # 6-node 2nd-order Triangle Element
-                        self.elements[element['num']] = Tria6(node_table,
-                                                              element['num'])
+                        self.elements[num] = Tria6(node_table,
+                                                   num,
+                                                   element['analysis_type'])
                     elif element['type'] == 10:
                         # 9-node 2nd-order Quad Element
-                        self.elements[element['num']] = Quad9(node_table,
-                                                              element['num'])
+                        self.elements[num] = Quad9(node_table,
+                                                   num,
+                                                   element['analysis_type'])
                     elif element['type'] == 15:
                         # 1-node Point Element
-                        self.elements[element['num']] = Point1(node_table,
-                                                               element['num'])
+                        self.elements[num] = Point1(node_table,
+                                                    num,
+                                                    element['analysis_type'])
                     elif element['type'] == 16:
                         # 8-node 2nd-order Quad Element
-                        self.elements[element['num']] = Quad8(node_table,
-                                                              element['num'])
+                        self.elements[num] = Quad8(node_table,
+                                                   num,
+                                                   element['analysis_type'])
                     elif element['type'] >= 1 or element['type'] <= 31:
                         e_type = element['type']
                         raise ValueError(f'Unsupported element type. {e_type} is'

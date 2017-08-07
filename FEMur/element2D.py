@@ -8,12 +8,13 @@ from math import ceil
 class Element2D(Element):
     'Defines the Planar Elements with its nodes and shape functions'
 
-    def __init__(self, element_type, node_table, index):
-        Element.__init__(self, node_table, index)
+    def __init__(self, element_type, node_table, index, analysis_type):
+        Element.__init__(self, node_table, index, analysis_type)
         self.number = index
 
         self.e_type = element_type  # 'L' for line, 'T' for triangle, 'Q' for
                                     # quad
+        self.analysis_type = analysis_type
 
         self.nodes = {}
         for i in range(self.num_nodes):
@@ -323,14 +324,41 @@ class Element2D(Element):
 
             self.trial_prime = trial2
 
+    def process_Ne(self):
+        if self.p_ref is None:
+            self.get_p_ref()
+        if self.Me_ref is None:
+            self.get_inv_Me_ref()
+
+        temp_Ne_ref = self.p_ref.T * self.inv_Me_ref
+
+        if self.analysis_type == 'SSHeat':
+            Ne_ref = temp_Ne_ref  # Ne_ref stays as calculated for SSHeat.
+
+        elif self.analysis_type == 'SSMech':
+            # Ne_ref must be changed into the correct format.
+            Ne_ref = sy.zeros(2, len(temp_Ne_ref) * 2)
+
+            for i in range(2):
+                for j in range(len(temp_Ne_ref)):
+                    Ne_ref[i, (j * 2) + i] = temp_Ne_ref[j]
+
+        else:
+            raise ValueError(f'Unkown analysis_type. The analysis type'
+                              ' provided was "{self.analysis_type}".')
+
+        return Ne_ref
+
+
+
 
 class Point1(Element2D):
     'Class for all single-node elements.'
     Ne_ref = None
 
-    def __init__(self, node, index):
+    def __init__(self, node, index, analysis_type):
         xi, eta = sy.symbols('xi eta')
-        Element2D.__init__(self, "P", node, index)
+        Element2D.__init__(self, "P", node, index, analysis_type)
         self.p_ref = sy.Matrix([1.0])
         self.xi_ref = sy.Matrix([0.0])
         self.eta_ref = sy.Matrix([0.0])
@@ -347,12 +375,7 @@ class Point1(Element2D):
     def get_Ne_ref(self):
         # Get the shape functions for the element in the xi and eta domain
         if Point1.Ne_ref == None:
-            if self.p_ref is None:
-                self.get_p_ref()
-            if self.Me_ref is None:
-                self.get_inv_Me_ref()
-
-            Point1.Ne_ref = self.p_ref.T * self.inv_Me_ref
+            Point1.Ne_ref = self.process_Ne()
             self.Ne_ref = Point1.Ne_ref
         else:
             self.Ne_ref = Point1.Ne_ref
@@ -361,9 +384,9 @@ class Point1(Element2D):
 class Line(Element2D):
     'Common class for all Line 2D elements.'
 
-    def __init__(self, node_table, index, using_directly=None):
+    def __init__(self, node_table, index, analysis_type, using_directly=None):
         xi, eta = sy.symbols('xi eta')
-        Element2D.__init__(self, "L", node_table, index)
+        Element2D.__init__(self, "L", node_table, index, analysis_type)
         self.length = self.get_length()
         self.npg_list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
@@ -396,8 +419,6 @@ class Line(Element2D):
             N = self.Ne_ref.subs(xi, coord[i])
             K_e = K_e + (self.detJe * w[i] * N.T * N * self.h)
             F_e = F_e + (self.detJe * w[i] * self.h * self.t_ext * N.T)
-            # K_e = K_e + (self.detJe * w[i] * sy.zeros(self.num_nodes) * self.h)
-            # F_e = F_e + (self.detJe * w[i] * self.h * self.t_ext * sy.zeros(self.num_nodes, 1))
 
         self.K_e = K_e
         self.F_e = F_e
@@ -407,10 +428,10 @@ class Line2(Line):
     'Class for 2D linear line elements with 2 nodes.'
     Ne_ref = None
 
-    def __init__(self, node_table, index):
+    def __init__(self, node_table, index, analysis_type):
         xi = sy.symbols('xi')
         eta = sy.symbols('eta')
-        Line.__init__(self, node_table, index)
+        Line.__init__(self, node_table, index, analysis_type)
         self.p_ref = sy.Matrix([1.0, xi])
         self.xi_ref = sy.Matrix([-1.0, 1.0])
         self.eta_ref = sy.Matrix([0.0, 0.0])
@@ -429,12 +450,7 @@ class Line2(Line):
     def get_Ne_ref(self):
         # Get the shape functions for the element in the xi and eta domain
         if Line2.Ne_ref == None:
-            if self.p_ref is None:
-                self.get_p_ref()
-            if self.Me_ref is None:
-                self.get_inv_Me_ref()
-
-            Line2.Ne_ref = self.p_ref.T * self.inv_Me_ref
+            Line2.Ne_ref = self.process_Ne()
             self.Ne_ref = Line2.Ne_ref
         else:
             self.Ne_ref = Line2.Ne_ref
@@ -444,10 +460,10 @@ class Line3(Line):
     'Class for 2D 2nd order line elements with 3 nodes.'
     Ne_ref = None
 
-    def __init__(self, node_table, index):
+    def __init__(self, node_table, index, analysis_type):
         xi = sy.symbols('xi')
         eta = sy.symbols('eta')
-        Line.__init__(self, node_table, index)
+        Line.__init__(self, node_table, index, analysis_type)
         self.p_ref = sy.Matrix([1.0, xi, xi ** 2])
         self.xi_ref = sy.Matrix([-1.0, 1.0, 0.0])
         self.eta_ref = sy.Matrix([0.0, 0.0, 0.0])
@@ -468,12 +484,7 @@ class Line3(Line):
         Get the shape functions for the element in the xi and eta domain.
         '''
         if Line3.Ne_ref == None:
-            if self.p_ref is None:
-                self.get_p_ref()
-            if self.Me_ref is None:
-                self.get_inv_Me_ref()
-
-            Line3.Ne_ref = self.p_ref.T * self.inv_Me_ref
+            Line3.Ne_ref = self.process_Ne()
             self.Ne_ref = Line3.Ne_ref
         else:
             self.Ne_ref = Line3.Ne_ref
@@ -483,10 +494,10 @@ class Line4(Line):
     'Class for 2D 2nd order line elements with 3 nodes.'
     Ne_ref = None
 
-    def __init__(self, node_table, index):
+    def __init__(self, node_table, index, analysis_type):
         xi = sy.symbols('xi')
         eta = sy.symbols('eta')
-        Line.__init__(self, node_table, index)
+        Line.__init__(self, node_table, index, analysis_type)
         self.p_ref = sy.Matrix([1.0, xi, xi ** 2, xi ** 3])
         self.xi_ref = sy.Matrix([-1.0, 1.0, -1/6, 1/6])
         self.eta_ref = sy.Matrix([0.0, 0.0, 0.0, 0.0])
@@ -507,12 +518,7 @@ class Line4(Line):
         Get the shape functions for the element in the xi and eta domain.
         '''
         if Line4.Ne_ref == None:
-            if self.p_ref is None:
-                self.get_p_ref()
-            if self.Me_ref is None:
-                self.get_inv_Me_ref()
-
-            Line4.Ne_ref = self.p_ref.T * self.inv_Me_ref
+            Line4.Ne_ref = self.process_Ne()
             self.Ne_ref = Line4.Ne_ref
         else:
             self.Ne_ref = Line4.Ne_ref
@@ -520,17 +526,17 @@ class Line4(Line):
 
 class Shell(Element2D):
     'Common class for all shell 2D elements types'
-    def __init__(self, e_type, node_table, index, using_directly=None):
-        Element2D.__init__(self, e_type, node_table, index)
+    def __init__(self, e_type, node_table, index, analysis_type,
+                 using_directly=None):
+        Element2D.__init__(self, e_type, node_table, index, analysis_type)
 
     def get_jacob(self, dN):
         jacob = sy.zeros(2)
 
         for i in range(self.num_nodes):
-            jacob[0, 0] += dN[0, i]*self.nodes[i].x
-            jacob[0, 1] += dN[0, i]*self.nodes[i].y
-            jacob[1, 0] += dN[1, i]*self.nodes[i].x
-            jacob[1, 1] += dN[1, i]*self.nodes[i].y
+            for j in range(2):
+                jacob[j, 0] += dN[j, i]*self.nodes[i].x
+                jacob[j, 1] += dN[j, i]*self.nodes[i].y
 
         return jacob
 
@@ -586,9 +592,9 @@ class Shell(Element2D):
 class Triangular(Shell):
     'Common class for all Triangular 2D elements'
 
-    def __init__(self, node_table, index, using_directly=None):
+    def __init__(self, node_table, index, analysis_type, using_directly=None):
         xi, eta = sy.symbols('xi eta')
-        Shell.__init__(self, "T", node_table, index)
+        Shell.__init__(self, "T", node_table, index, analysis_type)
         self.npg_list = [1, 3, 4, 6, 7, 12]
         # If using Triangular Directly, define self.p, self.xi_ref,
         # self.eta_ref, self.num_dots in your script.
@@ -598,11 +604,11 @@ class Tria3(Triangular):
     "Class representing the T3 shape."
     Ne_ref = None
 
-    def __init__(self, node_table, index):
+    def __init__(self, node_table, index, analysis_type):
         xi = sy.symbols('xi')
         eta = sy.symbols('eta')
 
-        Triangular.__init__(self, node_table, index)
+        Triangular.__init__(self, node_table, index, analysis_type)
         self.p_ref = sy.Matrix([1.0, xi, eta])
         self.xi_ref = sy.Matrix([0.0, 1.0, 0.0])
         self.eta_ref = sy.Matrix([0.0, 0.0, 1.0])
@@ -621,12 +627,7 @@ class Tria3(Triangular):
     def get_Ne_ref(self):
         # Get the shape functions for the element in the xi and eta domain
         if Tria3.Ne_ref == None:
-            if self.p_ref is None:
-                self.get_p_ref()
-            if self.Me_ref is None:
-                self.get_inv_Me_ref()
-
-            Tria3.Ne_ref = self.p_ref.T * self.inv_Me_ref
+            Tria3.Ne_ref = self.process_Ne()
             self.Ne_ref = Tria3.Ne_ref
         else:
             self.Ne_ref = Tria3.Ne_ref
@@ -636,10 +637,10 @@ class Tria6(Triangular):
     "Class representing the T6 shape."
     Ne_ref = None
 
-    def __init__(self, node_table, index):
+    def __init__(self, node_table, index, analysis_type):
         eta = sy.symbols('eta')
         xi = sy.symbols('xi')
-        Triangular.__init__(self, node_table, index)
+        Triangular.__init__(self, node_table, index, analysis_type)
 
         self.p_ref = sy.Matrix([1.0, xi, eta, xi * eta, xi * xi, eta * eta])
         self.xi_ref = sy.Matrix([0.0, 1.0, 0.0, 0.5, 0.5, 0.0])
@@ -659,12 +660,7 @@ class Tria6(Triangular):
     def get_Ne_ref(self):
         # Get the shape functions for the element in the xi and eta domain
         if Tria6.Ne_ref == None:
-            if self.p_ref is None:
-                self.get_p_ref()
-            if self.Me_ref is None:
-                self.get_inv_Me_ref()
-
-            Tria6.Ne_ref = self.p_ref.T * self.inv_Me_ref
+            Tria6.Ne_ref = self.process_Ne()
             self.Ne_ref = Tria6.Ne_ref
         else:
             self.Ne_ref = Tria6.Ne_ref
@@ -674,10 +670,10 @@ class CTria6(Triangular):
     "Class representing the Curved-T6 shape."
     Ne_ref = None
 
-    def __init__(self, node_table, index):
+    def __init__(self, node_table, index, analysis_type):
         eta = sy.symbols('eta')
         xi = sy.symbols('xi')
-        Triangular.__init__(self, node_table, index)
+        Triangular.__init__(self, node_table, index, analysis_type)
 
         self.p_ref = sy.Matrix([1.0, xi, eta, xi * eta, xi * xi, eta * eta])
         self.xi_ref = sy.Matrix([0.0, 1.0, 0.0, 0.5, 0.5, 0.0])
@@ -697,12 +693,7 @@ class CTria6(Triangular):
     def get_Ne_ref(self):
         # Get the shape functions for the element in the xi and eta domain
         if CTria6.Ne_ref == None:
-            if self.p_ref is None:
-                self.get_p_ref()
-            if self.Me_ref is None:
-                self.get_inv_Me_ref()
-
-            CTria6.Ne_ref = self.p_ref.T * self.inv_Me_ref
+            CTria6.Ne_ref = self.process_Ne()
             self.Ne_ref = CTria6.Ne_ref
         else:
             self.Ne_ref = CTria6.Ne_ref
@@ -711,9 +702,9 @@ class CTria6(Triangular):
 class Quad(Shell):
     'Common class for all Quad 2D elements'
 
-    def __init__(self, node_table, index):
+    def __init__(self, node_table, index, analysis_type):
         xi, eta = sy.symbols('xi eta')
-        Shell.__init__(self, 'Q', node_table, index)
+        Shell.__init__(self, 'Q', node_table, index, analysis_type)
         self.npg_list = [1, 4, 5, 8, 9]
         # If using Triangular Directly, define self.p, self.xi_ref,
         # self.eta_ref, self.num_dots in your script.
@@ -723,9 +714,9 @@ class Quad4(Quad):
     "Class representing the CQUAD4 shape."
     Ne_ref = None
 
-    def __init__(self, node_table, index):
+    def __init__(self, node_table, index, analysis_type):
         xi, eta = sy.symbols('xi eta')
-        Quad.__init__(self, node_table, index)
+        Quad.__init__(self, node_table, index, analysis_type)
         self.p_ref = sy.Matrix([1.0, xi, eta, xi * eta])
         self.xi_ref = sy.Matrix([-1.0, 1.0, 1.0, -1.0])
         self.eta_ref = sy.Matrix([-1.0, -1.0, 1.0, 1.0])
@@ -744,12 +735,7 @@ class Quad4(Quad):
     def get_Ne_ref(self):
         # Get the shape functions for the element in the xi and eta domain
         if Quad4.Ne_ref == None:
-            if self.p_ref is None:
-                self.get_p_ref()
-            if self.Me_ref is None:
-                self.get_inv_Me_ref()
-
-            Quad4.Ne_ref = self.p_ref.T * self.inv_Me_ref
+            Quad4.Ne_ref = self.process_Ne()
             self.Ne_ref = Quad4.Ne_ref
         else:
             self.Ne_ref = Quad4.Ne_ref
@@ -759,9 +745,9 @@ class Quad8(Quad):
     "Class representing the CQUAD8 shape."
     Ne_ref = None
 
-    def __init__(self, node_table, index):
+    def __init__(self, node_table, index, analysis_type):
         xi, eta = sy.symbols('xi eta')
-        Quad.__init__(self, node_table, index)
+        Quad.__init__(self, node_table, index, analysis_type)
         self.p_ref = sy.Matrix([1.0, xi, eta, xi * eta, xi ** 2, eta ** 2,
                                 xi ** 3, eta ** 3])
         self.xi_ref = sy.Matrix([-1.0, 1.0, 1.0, -1.0, 0.0, 1.0, 0.0, -1.0])
@@ -781,12 +767,7 @@ class Quad8(Quad):
     def get_Ne_ref(self):
         # Get the shape functions for the element in the xi and eta domain
         if Quad8.Ne_ref == None:
-            if self.p_ref is None:
-                self.get_p_ref()
-            if self.Me_ref is None:
-                self.get_inv_Me_ref()
-
-            Quad8.Ne_ref = self.p_ref.T * self.inv_Me_ref
+            Quad8.Ne_ref = self.process_Ne()
             self.Ne_ref = Quad8.Ne_ref
         else:
             self.Ne_ref = Quad8.Ne_ref
@@ -796,10 +777,10 @@ class Quad9(Quad):
     "Class representing the CQUAD9 shape."
     Ne_ref = None
 
-    def __init__(self, node_table, index):
+    def __init__(self, node_table, index, analysis_type):
         eta = sy.symbols('eta')
         xi = sy.symbols('xi')
-        Quad.__init__(self, node_table, index)
+        Quad.__init__(self, node_table, index, analysis_type)
         self.p_ref = sy.Matrix([1.0, xi, eta, xi * eta, xi ** 2, eta ** 2,
                                 xi ** 3, eta ** 3, (xi ** 2) * (eta ** 2)])
         self.xi_ref = sy.Matrix([-1.0, 1.0, 1.0, -1.0,
@@ -821,12 +802,7 @@ class Quad9(Quad):
     def get_Ne_ref(self):
         # Get the shape functions for the element in the xi and eta domain
         if Quad9.Ne_ref == None:
-            if self.p_ref is None:
-                self.get_p_ref()
-            if self.Me_ref is None:
-                self.get_inv_Me_ref()
-
-            Quad9.Ne_ref = self.p_ref.T * self.inv_Me_ref
+            Quad9.Ne_ref = self.process_Ne()
             self.Ne_ref = Quad9.Ne_ref
         else:
             self.Ne_ref = Quad9.Ne_ref
