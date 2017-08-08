@@ -184,6 +184,7 @@ class Mesh2D(Mesh):
         return None
 
     def mesh(self):
+        print('\n# IMPORTING MESH #\n')
         print('Importing nodes from file.')
         self.get_nodes_files()
         print('Nodes import complete.')

@@ -584,7 +584,7 @@ class Shell(Element2D):
             Be =  jacobien.inv() * dN
             # print('Be')
             # sy.pprint(Be)
-            print(self.D)
+
             K_e += (detJ * w[i] * ((Be.T * self.D * Be) + (2 *  N.T * N * self.h / self.e)))
             F_e += (detJ * w[i] * 2 * self.h * self.t_ext * N.T / self.e)
 

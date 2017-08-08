@@ -63,9 +63,6 @@ class Solver(object):
 
         print('\n# SOLVING FOR OMEGA #\n')
 
-        print(self.gbl_stiff)
-        print(self.gbl_load)
-
         new_stiff = sy.matrix2numpy(self.gbl_stiff, dtype=float)
         new_load = sy.matrix2numpy(self.gbl_load, dtype=float)
 
@@ -155,8 +152,7 @@ class SteadyHeatSolver(Solver):
                 self.mesh.elements[i].get_C()
                 # self.elements[i].solve_heat_load()
 
-                print(f"Applying Element({key})'s Stiffness Matrix and Load Vector"
-                  f"to the global Stiffness Matrix and Global Load Vector")
+                print(f"Applying Element({key})' Globally")
 
                 nodes_indexes = []
                 for j in self.mesh.elements[i].nodes.keys():

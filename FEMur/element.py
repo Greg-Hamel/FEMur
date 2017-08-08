@@ -34,13 +34,11 @@ class Element(object):
             coord = sy.zeros(npg, 2)
 
             if npg == 1:
-                print('npg = 1')
                 weight = weight * 1/2
                 coord[0, 0] = 1/3
                 coord[0, 1] = 1/3
 
             elif npg == 3:
-                print('npg=3')
                 weight = weight * 1/6
                 coord[0, 0] = 1/6
                 coord[0, 1] = 1/6
