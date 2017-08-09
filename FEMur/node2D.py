@@ -4,12 +4,12 @@ class Node2D(Node):
     'Class for all 2-D Nodes'
     total_nodes = 0
 
-    def __init__(self, x_coord, y_coord, index):
+    def __init__(self, x_coord, y_coord, dof, index):
         self.number = Node2D.total_nodes
         self.x = x_coord          # X coordinate of the node.
         self.y = y_coord          # Y coordinate of the node.
-        self.dof = 2        # Degree of freedom of the node.
-        self.index = index  # Index of this node in the Global Matrix.
+        self.dof = dof            # Degree of freedom of the node.
+        self.index = index        # Index of this node in the Global Matrix.
         Node2D.total_nodes += 1
 
     def __sub__(self, other):

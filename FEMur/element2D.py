@@ -8,8 +8,8 @@ from math import ceil
 class Element2D(Element):
     'Defines the Planar Elements with its nodes and shape functions'
 
-    def __init__(self, element_type, node_table, index, analysis_type):
-        Element.__init__(self, node_table, index, analysis_type)
+    def __init__(self, element_type, node_table, dof, index, analysis_type):
+        Element.__init__(self, node_table, dof, index, analysis_type)
         self.number = index
 
         self.e_type = element_type  # 'L' for line, 'T' for triangle, 'Q' for
@@ -364,9 +364,9 @@ class Point1(Element2D):
     'Class for all single-node elements.'
     Ne_ref = None
 
-    def __init__(self, node, index, analysis_type):
+    def __init__(self, node, dof, index, analysis_type):
         xi, eta = sy.symbols('xi eta')
-        Element2D.__init__(self, "P", node, index, analysis_type)
+        Element2D.__init__(self, "P", node, dof, index, analysis_type)
         self.p_ref = sy.Matrix([1.0])
         self.xi_ref = sy.Matrix([0.0])
         self.eta_ref = sy.Matrix([0.0])
@@ -392,9 +392,10 @@ class Point1(Element2D):
 class Line(Element2D):
     'Common class for all Line 2D elements.'
 
-    def __init__(self, node_table, index, analysis_type, using_directly=None):
+    def __init__(self, node_table, dof, index, analysis_type,
+                 using_directly=None):
         xi, eta = sy.symbols('xi eta')
-        Element2D.__init__(self, "L", node_table, index, analysis_type)
+        Element2D.__init__(self, "L", node_table, dof, index, analysis_type)
         self.length = self.get_length()
         self.npg_list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
@@ -436,10 +437,10 @@ class Line2(Line):
     'Class for 2D linear line elements with 2 nodes.'
     Ne_ref = None
 
-    def __init__(self, node_table, index, analysis_type):
+    def __init__(self, node_table, dof, index, analysis_type):
         xi = sy.symbols('xi')
         eta = sy.symbols('eta')
-        Line.__init__(self, node_table, index, analysis_type)
+        Line.__init__(self, node_table, dof, index, analysis_type)
         self.p_ref = sy.Matrix([1.0, xi])
         self.xi_ref = sy.Matrix([-1.0, 1.0])
         self.eta_ref = sy.Matrix([0.0, 0.0])
@@ -468,10 +469,10 @@ class Line3(Line):
     'Class for 2D 2nd order line elements with 3 nodes.'
     Ne_ref = None
 
-    def __init__(self, node_table, index, analysis_type):
+    def __init__(self, node_table, dof, index, analysis_type):
         xi = sy.symbols('xi')
         eta = sy.symbols('eta')
-        Line.__init__(self, node_table, index, analysis_type)
+        Line.__init__(self, node_table, dof, index, analysis_type)
         self.p_ref = sy.Matrix([1.0, xi, xi ** 2])
         self.xi_ref = sy.Matrix([-1.0, 1.0, 0.0])
         self.eta_ref = sy.Matrix([0.0, 0.0, 0.0])
@@ -502,10 +503,10 @@ class Line4(Line):
     'Class for 2D 2nd order line elements with 3 nodes.'
     Ne_ref = None
 
-    def __init__(self, node_table, index, analysis_type):
+    def __init__(self, node_table, dof, index, analysis_type):
         xi = sy.symbols('xi')
         eta = sy.symbols('eta')
-        Line.__init__(self, node_table, index, analysis_type)
+        Line.__init__(self, node_table, dof, index, analysis_type)
         self.p_ref = sy.Matrix([1.0, xi, xi ** 2, xi ** 3])
         self.xi_ref = sy.Matrix([-1.0, 1.0, -1/6, 1/6])
         self.eta_ref = sy.Matrix([0.0, 0.0, 0.0, 0.0])
@@ -534,9 +535,9 @@ class Line4(Line):
 
 class Shell(Element2D):
     'Common class for all shell 2D elements types'
-    def __init__(self, e_type, node_table, index, analysis_type,
+    def __init__(self, e_type, node_table, dof, index, analysis_type,
                  using_directly=None):
-        Element2D.__init__(self, e_type, node_table, index, analysis_type)
+        Element2D.__init__(self, e_type, node_table, dof, index, analysis_type)
 
     def get_jacob(self, dN):
         jacob = sy.zeros(2)
@@ -600,9 +601,9 @@ class Shell(Element2D):
 class Triangular(Shell):
     'Common class for all Triangular 2D elements'
 
-    def __init__(self, node_table, index, analysis_type, using_directly=None):
+    def __init__(self, node_table, dof, index, analysis_type, using_directly=None):
         xi, eta = sy.symbols('xi eta')
-        Shell.__init__(self, "T", node_table, index, analysis_type)
+        Shell.__init__(self, "T", node_table, dof, index, analysis_type)
         self.npg_list = [1, 3, 4, 6, 7, 12]
         # If using Triangular Directly, define self.p, self.xi_ref,
         # self.eta_ref, self.num_dots in your script.
@@ -612,11 +613,11 @@ class Tria3(Triangular):
     "Class representing the T3 shape."
     Ne_ref = None
 
-    def __init__(self, node_table, index, analysis_type):
+    def __init__(self, node_table, dof, index, analysis_type):
         xi = sy.symbols('xi')
         eta = sy.symbols('eta')
 
-        Triangular.__init__(self, node_table, index, analysis_type)
+        Triangular.__init__(self, node_table, dof, index, analysis_type)
         self.p_ref = sy.Matrix([1.0, xi, eta])
         self.xi_ref = sy.Matrix([0.0, 1.0, 0.0])
         self.eta_ref = sy.Matrix([0.0, 0.0, 1.0])
@@ -645,10 +646,10 @@ class Tria6(Triangular):
     "Class representing the T6 shape."
     Ne_ref = None
 
-    def __init__(self, node_table, index, analysis_type):
+    def __init__(self, node_table, dof, index, analysis_type):
         eta = sy.symbols('eta')
         xi = sy.symbols('xi')
-        Triangular.__init__(self, node_table, index, analysis_type)
+        Triangular.__init__(self, node_table, dof, index, analysis_type)
 
         self.p_ref = sy.Matrix([1.0, xi, eta, xi * eta, xi * xi, eta * eta])
         self.xi_ref = sy.Matrix([0.0, 1.0, 0.0, 0.5, 0.5, 0.0])
@@ -678,10 +679,10 @@ class CTria6(Triangular):
     "Class representing the Curved-T6 shape."
     Ne_ref = None
 
-    def __init__(self, node_table, index, analysis_type):
+    def __init__(self, node_table, dof, index, analysis_type):
         eta = sy.symbols('eta')
         xi = sy.symbols('xi')
-        Triangular.__init__(self, node_table, index, analysis_type)
+        Triangular.__init__(self, node_table, dof, index, analysis_type)
 
         self.p_ref = sy.Matrix([1.0, xi, eta, xi * eta, xi * xi, eta * eta])
         self.xi_ref = sy.Matrix([0.0, 1.0, 0.0, 0.5, 0.5, 0.0])
@@ -710,7 +711,7 @@ class CTria6(Triangular):
 class Quad(Shell):
     'Common class for all Quad 2D elements'
 
-    def __init__(self, node_table, index, analysis_type):
+    def __init__(self, node_table, dof, index, analysis_type):
         xi, eta = sy.symbols('xi eta')
         Shell.__init__(self, 'Q', node_table, index, analysis_type)
         self.npg_list = [1, 4, 5, 8, 9]
@@ -722,9 +723,9 @@ class Quad4(Quad):
     "Class representing the CQUAD4 shape."
     Ne_ref = None
 
-    def __init__(self, node_table, index, analysis_type):
+    def __init__(self, node_table, dof, index, analysis_type):
         xi, eta = sy.symbols('xi eta')
-        Quad.__init__(self, node_table, index, analysis_type)
+        Quad.__init__(self, node_table, dof, index, analysis_type)
         self.p_ref = sy.Matrix([1.0, xi, eta, xi * eta])
         self.xi_ref = sy.Matrix([-1.0, 1.0, 1.0, -1.0])
         self.eta_ref = sy.Matrix([-1.0, -1.0, 1.0, 1.0])
@@ -753,9 +754,9 @@ class Quad8(Quad):
     "Class representing the CQUAD8 shape."
     Ne_ref = None
 
-    def __init__(self, node_table, index, analysis_type):
+    def __init__(self, node_table, dof, index, analysis_type):
         xi, eta = sy.symbols('xi eta')
-        Quad.__init__(self, node_table, index, analysis_type)
+        Quad.__init__(self, node_table, dof, index, analysis_type)
         self.p_ref = sy.Matrix([1.0, xi, eta, xi * eta, xi ** 2, eta ** 2,
                                 xi ** 3, eta ** 3])
         self.xi_ref = sy.Matrix([-1.0, 1.0, 1.0, -1.0, 0.0, 1.0, 0.0, -1.0])
@@ -785,10 +786,10 @@ class Quad9(Quad):
     "Class representing the CQUAD9 shape."
     Ne_ref = None
 
-    def __init__(self, node_table, index, analysis_type):
+    def __init__(self, node_table, dof, index, analysis_type):
         eta = sy.symbols('eta')
         xi = sy.symbols('xi')
-        Quad.__init__(self, node_table, index, analysis_type)
+        Quad.__init__(self, node_table, dof, index, analysis_type)
         self.p_ref = sy.Matrix([1.0, xi, eta, xi * eta, xi ** 2, eta ** 2,
                                 xi ** 3, eta ** 3, (xi ** 2) * (eta ** 2)])
         self.xi_ref = sy.Matrix([-1.0, 1.0, 1.0, -1.0,

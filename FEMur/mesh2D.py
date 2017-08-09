@@ -14,9 +14,15 @@ class Mesh2D(Mesh):
     This class will define import GMSH ASCII Mesh.
     """
 
+    dof_dict = {
+    "SSHeat": 1
+    "SSMech": 2
+    }
+
     def __init__(self, file_name, analysis_type):
         self.file_name = file_name
         self.analysis_type = analysis_type
+        self.dof = Mesh2D.dof_dict[analysis_type]
 
         self.calculated = False #  Solving has not been completed yet.
         self.cauchy_applied = False
@@ -66,6 +72,7 @@ class Mesh2D(Mesh):
                     node['num'], node['x'], node['y'], node['z'] = line.split(' ')
                     self.nodes[int(node['num']) - 1] = Node2D(float(node['x']),
                                                      float(node['y']),
+                                                     self.dof,
                                                      int(node['num']) - 1)
             elif line == '$Nodes':  # Set Record_node Flag
                 record_node = True
@@ -122,41 +129,49 @@ class Mesh2D(Mesh):
                     if element['type'] == 1:
                         # 2-node Line Element
                         self.elements[num] = Line2(node_table,
+                                                   self.dof,
                                                    num,
                                                    element['analysis_type'])
                     elif element['type'] == 2:
                         # 3-node Triangle Element
                         self.elements[num] = Tria3(node_table,
+                                                   self.dof,
                                                    num,
                                                    element['analysis_type'])
                     elif element['type'] == 3:
                         # 4-node Quad Element
                         self.elements[num] = Quad4(node_table,
+                                                   self.dof,
                                                    num,
                                                    element['analysis_type'])
                     elif element['type'] == 8:
                         # 3-node 2nd-order Line Element
                         self.elements[num] = Line3(node_table,
+                                                   self.dof,
                                                    num,
                                                    element['analysis_type'])
                     elif element['type'] == 9:
                         # 6-node 2nd-order Triangle Element
                         self.elements[num] = Tria6(node_table,
+                                                   self.dof,
                                                    num,
                                                    element['analysis_type'])
                     elif element['type'] == 10:
                         # 9-node 2nd-order Quad Element
                         self.elements[num] = Quad9(node_table,
+                                                   self.dof,
                                                    num,
                                                    element['analysis_type'])
                     elif element['type'] == 15:
                         # 1-node Point Element
                         self.elements[num] = Point1(node_table,
+                                                   self.dof,
                                                     num,
                                                     element['analysis_type'])
                     elif element['type'] == 16:
                         # 8-node 2nd-order Quad Element
                         self.elements[num] = Quad8(node_table,
+                                                   self.dof,
                                                    num,
                                                    element['analysis_type'])
                     elif element['type'] >= 1 or element['type'] <= 31:
