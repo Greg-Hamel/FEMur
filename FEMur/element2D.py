@@ -14,6 +14,7 @@ class Element2D(Element):
 
         self.e_type = element_type  # 'L' for line, 'T' for triangle, 'Q' for
                                     # quad
+        self.dof = dof
         self.analysis_type = analysis_type
 
         self.nodes = {}
@@ -345,11 +346,11 @@ class Element2D(Element):
 
         elif self.analysis_type == 'SSMech':
             # Ne_ref must be changed into the correct format.
-            Ne_ref = sy.zeros(2, len(temp_Ne_ref) * 2)
+            Ne_ref = sy.zeros(self.dof, len(temp_Ne_ref) * self.dof)
 
-            for i in range(2):
+            for i in range(self.dog):
                 for j in range(len(temp_Ne_ref)):
-                    Ne_ref[i, (j * 2) + i] = temp_Ne_ref[j]
+                    Ne_ref[i, (j * self.dof) + i] = temp_Ne_ref[j]
 
         else:
             raise ValueError(f'Unkown analysis_type. The analysis type'
